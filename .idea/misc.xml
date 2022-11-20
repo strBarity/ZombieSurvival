@@ -4,6 +4,7 @@
     <list size="1">
       <item index="0" class="java.lang.String" itemvalue="org.bukkit.event.EventHandler" />
     </list>
+    <pattern value="main.Main" />
   </component>
   <component name="MavenProjectsManager">
     <option name="originalFiles">
