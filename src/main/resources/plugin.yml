@@ -1,0 +1,6 @@
+name: Zombiesurvival
+version: 1.0.0
+main: main.Main
+api-version: 1.19
+authors: [ Barity_ ]
+description: Wave-Zombie-Defence survival since 2020
