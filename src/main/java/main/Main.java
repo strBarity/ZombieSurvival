@@ -6,7 +6,9 @@ import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.ProtocolManager;
 import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketEvent;
+import com.comphenix.protocol.wrappers.EnumWrappers;
 import eventhandler.EventListener;
+import gamehandler.GameHandler;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.Component;
@@ -14,6 +16,8 @@ import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.block.Block;
+import org.bukkit.block.EndGateway;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.craftbukkit.v1_19_R1.entity.CraftPlayer;
 import org.bukkit.enchantments.Enchantment;
@@ -45,6 +49,7 @@ public final class Main extends JavaPlugin {
     @Override
     public void onEnable() {
         try {
+            startMainTask();
             LOGGER.sendMessage("§4[§2ZombieSurvival§4] §a플러그인이 활성화되었습니다.");
 
             Bukkit.getPluginManager().registerEvents(new EventListener(), this);
@@ -66,25 +71,25 @@ public final class Main extends JavaPlugin {
             CORE_OF_PURIFICATION = customItem(Material.DIAMOND,1, "§d§l정화의 코어", Arrays.asList("§d정화의 좀비§7에게서 떨어진 코어다.", "§7유용한 아이템으로 만들 수 있을 것 같다.", "", "§d정화의 좀비§8에게서 확정적으로 드랍"), true, null);
             CORE_OF_CREATION = customItem(Material.FEATHER,1, "§b§l창조의 코어", Arrays.asList("§b창조의 좀비§7에게서 떨어진 코어다.", "§7유용한 아이템으로 만들 수 있을 것 같다.", "", "§b창조의 좀비§8에게서 확정적으로 드랍"), true, null);
             CORE_OF_DESTRUCTION = customItem(Material.END_CRYSTAL,1, "§c§l파괴의 코어", Arrays.asList("§c파괴의 좀비§7에게서 떨어진 코어다.", "§7유용한 아이템으로 만들 수 있을 것 같다.", "", "§c파괴의 좀비§8에게서 확정적으로 드랍"), true, null);
-            PURIFICATION_STAFF = customItem(Material.NETHERITE_SHOVEL,1, "§e★★★ §d정화의 스태프", Arrays.asList("§7날카로움 V", "", "§d적 처치 시 근처 플레이어에게", "§d재생 II를 1초간 부여한다. (중첩됨)"), true, List.of(sh5));
-            CREATION_WAND = customItem(Material.NETHERITE_SHOVEL,1, "§e★★★ §b창조의 지팡이", Arrays.asList("§7날카로움 V", "", "§d적 처치 시 적의 위치에 체력 1,", "§d공격력 1의 눈사람 아군을 생성시킨다."), true, List.of(sh5));
-            DESTRUCTION_AXE = customItem(Material.NETHERITE_AXE, 1, "§e★★★ §c파괴의 도끼", Arrays.asList("§7날카로움 V", "", "§d적 타격 시 낮은 확률로 적의 위치에", "§d10 공격력의 강력한 폭발을 생성시킨다."), true, List.of(sh5));
-            ZOMBIE_BREAKER = customItem(Material.NETHERITE_SWORD,1, "§c⭐ §4좀비 브레이커", Arrays.asList("§6날카로움 X", "", "§d적 타격 시 낮은 확률로 플레이어는 2의 체력을", "§d회복하고 좀비는 4의 피해를 입는 폭발이 일어난다."), true, List.of(sh10));
+            PURIFICATION_STAFF = customItem(Material.NETHERITE_SHOVEL,1, "§e★★★ §d정화의 스태프", Arrays.asList("§7날카로움 V", "", "§a능력: §e힐링 킬링", "§c적 처치§7 시 근처 §e플레이어§7에게", "§d재생 II§7를 §a1§7초간 부여한다."), true, List.of(sh5));
+            CREATION_WAND = customItem(Material.NETHERITE_PICKAXE,1, "§e★★★ §b창조의 지팡이", Arrays.asList("§7날카로움 V", "", "§a능력: §e아군 생성기", "§c적 처치§7 시 적의 위치에 §c체력 §a1,", "§c공격력 §a1§7의 친화적 §f눈사람§7을 §b소환§7한다."), true, List.of(sh5));
+            DESTRUCTION_AXE = customItem(Material.NETHERITE_AXE, 1, "§e★★★ §c파괴의 도끼", Arrays.asList("§7날카로움 V", "", "§a능력: §e폭발성 날", "§6적 타격§7 시 §5낮은 확률§7로 적의 위치에", "§a5§7의 §c피해§7를 주는 강력한 §e폭발§7을 생성시킨다."), true, List.of(sh5));
+            ZOMBIE_BREAKER = customItem(Material.NETHERITE_SWORD,1, "§c⭐ §4좀비 브레이커", Arrays.asList("§6날카로움 X", "", "§a능력: §d생명의 빛", "§6적 타격§7 시 §5낮은 확률§7로 §e플레이어§7는 §a2§7의 체력을", "§d회복§7하고 §2좀비§7는 §a6§7의 §c피해§7를 입는 §e폭발§7이 일어난다."), true, List.of(sh10));
 
-            ShapedRecipe r1 = new ShapedRecipe(new NamespacedKey(this, "purifiacation_staff"), PURIFICATION_STAFF);
+            ShapedRecipe r1 = new ShapedRecipe(new NamespacedKey(this, "custom_purifiacation_staff"), PURIFICATION_STAFF);
             r1.shape("PCP", "PSP", "PPP");
             r1.setIngredient('P', ZOMBIE_POWDER).setIngredient('C', CORE_OF_PURIFICATION).setIngredient('S', ZOMBIE_POWER);
             Bukkit.addRecipe(r1);
-            ShapedRecipe r2 = new ShapedRecipe(new NamespacedKey(this, "creation_wand"), CREATION_WAND);
+            ShapedRecipe r2 = new ShapedRecipe(new NamespacedKey(this, "custom_creation_wand"), CREATION_WAND);
             r2.shape("PCP", "PSP", "PPP").setIngredient('P', ZOMBIE_POWDER).setIngredient('C', CORE_OF_CREATION).setIngredient('S', ZOMBIE_POWER);
             Bukkit.addRecipe(r2);
-            ShapedRecipe r3 = new ShapedRecipe(new NamespacedKey(this, "destruction_axe"), DESTRUCTION_AXE);
+            ShapedRecipe r3 = new ShapedRecipe(new NamespacedKey(this, "custom_destruction_axe"), DESTRUCTION_AXE);
             r3.shape("PCP", "PSP", "PPP").setIngredient('P', ZOMBIE_POWDER).setIngredient('C', CORE_OF_DESTRUCTION).setIngredient('S', ZOMBIE_POWER);
             Bukkit.addRecipe(r3);
-            ShapedRecipe r4 = new ShapedRecipe(new NamespacedKey(this, "zombie_breaker"), ZOMBIE_BREAKER);
+            ShapedRecipe r4 = new ShapedRecipe(new NamespacedKey(this, "custom_zombie_breaker"), ZOMBIE_BREAKER);
             r4.shape("PBP", "CSU", "PTP").setIngredient('P', ZOMBIE_PIECE).setIngredient('B', DESTRUCTION_AXE).setIngredient('C', CREATION_WAND).setIngredient('U', PURIFICATION_STAFF).setIngredient('T', ZOMBIE_TRACE).setIngredient('S', ZOMBIE_POWER);
             Bukkit.addRecipe(r4);
-            ShapedRecipe r5 = new ShapedRecipe(new NamespacedKey(this, "zombie_piece"), ZOMBIE_PIECE);
+            ShapedRecipe r5 = new ShapedRecipe(new NamespacedKey(this, "custom_zombie_piece"), ZOMBIE_PIECE);
             r5.shape("PPP", "PPP", "PPP").setIngredient('P', ZOMBIE_POWDER);
             Bukkit.addRecipe(r5);
 
@@ -99,6 +104,7 @@ public final class Main extends JavaPlugin {
                 for (Player p : Bukkit.getOnlinePlayers()) {
                     EventListener.registerNpc(p);
                     EventListener.registerTask(p);
+                    EventListener.discoverRecipes(p);
                 }
 
             ProtocolManager manager = ProtocolLibrary.getProtocolManager();
@@ -107,7 +113,7 @@ public final class Main extends JavaPlugin {
                 public void onPacketReceiving(PacketEvent e) {
                     try {
                         Player p = e.getPlayer();
-                        if (EventListener.getNpcId().get(p).equals(e.getPacket().getIntegers().read(0))) {
+                        if (EventListener.getNpcId().get(p).equals(e.getPacket().getIntegers().read(0)) && e.getPacket().getHands().read(0).equals(EnumWrappers.Hand.MAIN_HAND)) {
                             new BukkitRunnable() {
                                 @Override
                                 public void run() {
@@ -115,12 +121,12 @@ public final class Main extends JavaPlugin {
                                         Inventory gui = Bukkit.createInventory(null, 27, Component.text("§2게임 시작 메뉴"));
                                         for (int i = 0; i < 27; i++)
                                             gui.setItem(i, Main.customItem(Material.WHITE_STAINED_GLASS_PANE, 1, " ", null, false, null));
-                                        gui.setItem(10, Main.customItem(Material.IRON_SWORD, 1, "§e일반 모드", Arrays.asList("§b클래식한 일반 모드입니다.", "§a100웨이브까지 버티는게 목표이며, 모든 플레이어가", "§a좀비가 될 경우 패배하는 시스템입니다."), true, null));
-                                        gui.setItem(12, Main.customItem(Material.GOLDEN_SWORD, 1, "§2숙주 처치 모드", Arrays.asList("§b숙주 좀비가 등장하는 모드입니다.", "§a플레이어 수에 따라 특정 웨이브에", "§a숙주 좀비가 등장합니다. 숙주 좀비를 처치할 시", "§a좀비가 더 이상 생성되지 않고 감염자들은 부활할 수 없습니다.", "§a이때 감염자들을 모두 처치하거나 치료할 경우 승리합니다."), true, null));
-                                        gui.setItem(14, Main.customItem(Material.DIAMOND_SWORD, 1, "§c하드코어 모드", Arrays.asList("§b일반 모드의 어려운 버전입니다.", "§a좀비들의 공격력이 강해지고 속도가 빨라지며", "§a백신을 사용할 수 없습니다."), true, null));
+                                        gui.setItem(10, Main.customItem(Material.IRON_SWORD, 1, "§e일반 모드", Arrays.asList("§b클래식한 일반 모드입니다.", "§e100§a웨이브까지 버티는게 목표이며, 모든 플레이어가", "§2좀비§a가 될 경우 §c패배§a하는 시스템입니다."), true, null));
+                                        gui.setItem(12, Main.customItem(Material.GOLDEN_SWORD, 1, "§2숙주 처치 모드", Arrays.asList("§2숙주 좀비§b가 등장하는 모드입니다.", "§a플레이어 수에 따라 §e특정 웨이브§a에 아주 강력한", "§4숙주 좀비§a가 등장합니다. §4숙주 좀비§a를 처치할 시", "§a좀비가 더 이상 생성되지 않고 §e감염자§a들은 §c부활할 수 없습니다§a.", "§a이때 감염자들을 모두 §c처치§a하거나 §b치료§a할 경우 §d승리§a합니다."), true, null));
+                                        gui.setItem(14, Main.customItem(Material.DIAMOND_SWORD, 1, "§c하드코어 모드", Arrays.asList("§b일반 모드의 어려운 버전입니다.", "§a좀비들의 §c공격력§a이 강해지고 §9속도§a가 빨라지며", "§e백신§a을 사용할 수 §c없습니다§a."), true, null));
                                         gui.setItem(16, Main.customItem(Material.NETHERITE_SWORD, 1, "§4불가능 모드", List.of("§8???"), true, null));
                                         p.openInventory(gui);
-                                        p.playSound(Sound.sound(Key.key("minecraft:entity.experience_orb.pickup"), Sound.Source.MASTER, 1, 1));
+                                        p.playSound(Sound.sound(Key.key("minecraft:entity.experience_orb.pickup"), Sound.Source.MASTER, 0.75F, 1));
                                     } catch (Exception e1) {
                                         Main.printException(e1);
                                     }
@@ -142,16 +148,35 @@ public final class Main extends JavaPlugin {
         try {
             LOGGER.sendMessage("§4[§2ZombieSurvival§4] §c플러그인이 비활성화되었습니다.");
 
-            Bukkit.removeRecipe(new NamespacedKey(this, "purifiacation_staff"));
-            Bukkit.removeRecipe(new NamespacedKey(this, "creation_wand"));
-            Bukkit.removeRecipe(new NamespacedKey(this, "destruction_axe"));
-            Bukkit.removeRecipe(new NamespacedKey(this, "zombie_breaker"));
-            Bukkit.removeRecipe(new NamespacedKey(this, "zombie_piece"));
+            Bukkit.removeRecipe(new NamespacedKey(this, "custom_purifiacation_staff"));
+            Bukkit.removeRecipe(new NamespacedKey(this, "custom_creation_wand"));
+            Bukkit.removeRecipe(new NamespacedKey(this, "custom_destruction_axe"));
+            Bukkit.removeRecipe(new NamespacedKey(this, "custom_zombie_breaker"));
+            Bukkit.removeRecipe(new NamespacedKey(this, "custom_zombie_piece"));
 
-            if (!Bukkit.getOnlinePlayers().isEmpty())
+            if (!Bukkit.getOnlinePlayers().isEmpty()) {
                 for (Player p : Bukkit.getOnlinePlayers()) {
                     ((CraftPlayer) p).getHandle().connection.send(new ClientboundRemoveEntitiesPacket(EventListener.getNpcId().get(p)));
+                    p.undiscoverRecipes(Main.recipeKeys);
+                }
             }
+        } catch (Exception e) {
+            printException(e);
+        }
+    }
+    public static void startMainTask() {
+        try {
+            Bukkit.getScheduler().scheduleSyncRepeatingTask(Main.getPlugin(Main.class), () -> {
+                try {
+                    Block gate = Objects.requireNonNull(Bukkit.getWorld("world")).getBlockAt(252, 72, 208);
+                    EndGateway gateway = (EndGateway) gate.getState();
+                    if (GameHandler.beaconAlive) gateway.setAge(120);
+                    else gateway.setAge(gateway.getAge()-30);
+                    gateway.update();
+                } catch (Exception e) {
+                    printException(e);
+                }
+            }, 0, 20L);
         } catch (Exception e) {
             printException(e);
         }

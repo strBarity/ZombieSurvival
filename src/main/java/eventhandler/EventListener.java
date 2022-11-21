@@ -11,10 +11,8 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
+import org.bukkit.*;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.craftbukkit.v1_19_R1.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -99,14 +97,13 @@ public class EventListener implements Listener {
     public void onJoin(PlayerJoinEvent e) {
         try {
             Player p = e.getPlayer();
+            p.setGameMode(GameMode.SURVIVAL);
+            p.getInventory().clear();
+            p.teleport(new Location(p.getWorld(), 240.5, 224.0, 208.5));
             registerTask(p);
             registerNpc(p);
-            p.undiscoverRecipes(Main.recipeKeys);
-            p.discoverRecipe(new NamespacedKey(Main.getPlugin(Main.class), "purifiacation_staff"));
-            p.discoverRecipe(new NamespacedKey(Main.getPlugin(Main.class), "creation_wand"));
-            p.discoverRecipe(new NamespacedKey(Main.getPlugin(Main.class), "destruction_axe"));
-            p.discoverRecipe(new NamespacedKey(Main.getPlugin(Main.class), "zombie_breaker"));
-            p.discoverRecipe(new NamespacedKey(Main.getPlugin(Main.class), "zombie_piece"));
+            discoverRecipes(p);
+            Objects.requireNonNull(p.getAttribute(Attribute.GENERIC_ATTACK_SPEED)).setBaseValue(Double.MAX_VALUE);
         } catch (Exception e1) {
             Main.printException(e1);
         }
@@ -148,12 +145,20 @@ public class EventListener implements Listener {
             Main.printException(e1);
         }
     }
+    @EventHandler
+    public void onRecipe(PlayerRecipeDiscoverEvent e) {
+        try {
+            if (e.getRecipe().getKey().contains("custom")) e.setCancelled(true);
+        } catch (Exception e1) {
+            Main.printException(e1);
+        }
+    }
 
     public static void registerTask(Player p) {
         try {
             int i = Bukkit.getScheduler().scheduleSyncRepeatingTask(Main.getPlugin(Main.class), () -> {
                 try {
-                    if (!GameHandler.gameStarted && p.getLocation().getY() < 219)
+                    if (!GameHandler.gameStarted && p.getLocation().getY() < 219 && p.getGameMode().equals(GameMode.SURVIVAL))
                         p.teleport(new Location(p.getWorld(), 240.5, 224.0, 208.5));
                 } catch (Exception e1) {
                     Main.printException(e1);
@@ -176,6 +181,7 @@ public class EventListener implements Listener {
             profile.getProperties().put("textures", new Property("textures", value, signature));
             ServerPlayer npc = new ServerPlayer(Objects.requireNonNull(sp.getServer()), sp.getLevel(), profile, null);
             npc.setPos(240.5, 224.0625, 202.5);
+            npc.setGlowingTag(true);
             SynchedEntityData data = npc.getEntityData();
             data.set(new EntityDataAccessor<>(17, EntityDataSerializers.BYTE), (byte) (0x01 | 0x04 | 0x08 | 0x10 | 0x20 | 0x40));
             connection.send(new ClientboundPlayerInfoPacket(ClientboundPlayerInfoPacket.Action.ADD_PLAYER, npc));
@@ -189,5 +195,13 @@ public class EventListener implements Listener {
         } catch (Exception e) {
             Main.printException(e);
         }
+    }
+    public static void discoverRecipes(Player p) {
+        p.undiscoverRecipes(Main.recipeKeys);
+        p.discoverRecipe(new NamespacedKey(Main.getPlugin(Main.class), "custom_purifiacation_staff"));
+        p.discoverRecipe(new NamespacedKey(Main.getPlugin(Main.class), "custom_creation_wand"));
+        p.discoverRecipe(new NamespacedKey(Main.getPlugin(Main.class), "custom_destruction_axe"));
+        p.discoverRecipe(new NamespacedKey(Main.getPlugin(Main.class), "custom_zombie_breaker"));
+        p.discoverRecipe(new NamespacedKey(Main.getPlugin(Main.class), "custom_zombie_piece"));
     }
 }
