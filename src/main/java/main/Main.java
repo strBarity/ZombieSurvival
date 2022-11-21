@@ -111,15 +111,19 @@ public final class Main extends JavaPlugin {
                             new BukkitRunnable() {
                                 @Override
                                 public void run() {
-                                    Inventory gui = Bukkit.createInventory(null, 27, Component.text("§2게임 시작 메뉴"));
-                                    for (int i = 0; i < 27; i++)
-                                        gui.setItem(i, Main.customItem(Material.WHITE_STAINED_GLASS_PANE, 1, " ", null, false, null));
-                                    gui.setItem(10, Main.customItem(Material.IRON_SWORD, 1, "§e일반 모드", Arrays.asList("§b클래식한 일반 모드입니다.", "§a100웨이브까지 버티는게 목표이며, 모든 플레이어가", "§a좀비가 될 경우 패배하는 시스템입니다."), true, null));
-                                    gui.setItem(12, Main.customItem(Material.GOLDEN_SWORD, 1, "§2숙주 처치 모드", Arrays.asList("§b숙주 좀비가 등장하는 모드입니다.", "§a플레이어 수에 따라 특정 웨이브에", "§a숙주 좀비가 등장합니다. 숙주 좀비를 처치할 시", "§a좀비가 더 이상 생성되지 않고 감염자들은 부활할 수 없습니다.", "§a이때 감염자들을 모두 처치하거나 치료할 경우 승리합니다."), true, null));
-                                    gui.setItem(14, Main.customItem(Material.DIAMOND_SWORD, 1, "§c하드코어 모드", Arrays.asList("§b일반 모드의 어려운 버전입니다.", "§a좀비들의 공격력이 강해지고 속도가 빨라지며", "§a백신을 사용할 수 없습니다."), true, null));
-                                    gui.setItem(16, Main.customItem(Material.NETHERITE_SWORD, 1, "§4불가능 모드", List.of("§8???"), true, null));
-                                    p.openInventory(gui);
-                                    p.playSound(Sound.sound(Key.key("minecraft:entity.experience_orb.pickup"), Sound.Source.MASTER, 1, 1));
+                                    try {
+                                        Inventory gui = Bukkit.createInventory(null, 27, Component.text("§2게임 시작 메뉴"));
+                                        for (int i = 0; i < 27; i++)
+                                            gui.setItem(i, Main.customItem(Material.WHITE_STAINED_GLASS_PANE, 1, " ", null, false, null));
+                                        gui.setItem(10, Main.customItem(Material.IRON_SWORD, 1, "§e일반 모드", Arrays.asList("§b클래식한 일반 모드입니다.", "§a100웨이브까지 버티는게 목표이며, 모든 플레이어가", "§a좀비가 될 경우 패배하는 시스템입니다."), true, null));
+                                        gui.setItem(12, Main.customItem(Material.GOLDEN_SWORD, 1, "§2숙주 처치 모드", Arrays.asList("§b숙주 좀비가 등장하는 모드입니다.", "§a플레이어 수에 따라 특정 웨이브에", "§a숙주 좀비가 등장합니다. 숙주 좀비를 처치할 시", "§a좀비가 더 이상 생성되지 않고 감염자들은 부활할 수 없습니다.", "§a이때 감염자들을 모두 처치하거나 치료할 경우 승리합니다."), true, null));
+                                        gui.setItem(14, Main.customItem(Material.DIAMOND_SWORD, 1, "§c하드코어 모드", Arrays.asList("§b일반 모드의 어려운 버전입니다.", "§a좀비들의 공격력이 강해지고 속도가 빨라지며", "§a백신을 사용할 수 없습니다."), true, null));
+                                        gui.setItem(16, Main.customItem(Material.NETHERITE_SWORD, 1, "§4불가능 모드", List.of("§8???"), true, null));
+                                        p.openInventory(gui);
+                                        p.playSound(Sound.sound(Key.key("minecraft:entity.experience_orb.pickup"), Sound.Source.MASTER, 1, 1));
+                                    } catch (Exception e1) {
+                                        Main.printException(e1);
+                                    }
                                 }
                             }.runTask(Main.getPlugin(Main.class));
                         }
