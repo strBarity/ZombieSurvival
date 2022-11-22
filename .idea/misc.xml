@@ -5,6 +5,7 @@
       <item index="0" class="java.lang.String" itemvalue="org.bukkit.event.EventHandler" />
     </list>
     <pattern value="main.Main" />
+    <pattern value="main.timerhandler.InvOpenCDHandler" />
   </component>
   <component name="MavenProjectsManager">
     <option name="originalFiles">

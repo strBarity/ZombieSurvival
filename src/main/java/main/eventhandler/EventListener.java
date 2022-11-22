@@ -59,7 +59,8 @@ public class EventListener implements Listener {
             Component t = e.getView().title();
             if (t.equals(Component.text("§2게임 시작 메뉴"))) {
                 e.setCancelled(true);
-                if (e.getSlot() == 10 || e.getSlot() == 12 || e.getSlot() == 14 || e.getSlot() == 16) {
+                if (e.getSlot() == 10) GameHandler.startGame(GameHandler.Gamemode.NORMAL);
+                else if (e.getSlot() == 12 || e.getSlot() == 14 || e.getSlot() == 16) {
                     p.sendMessage("§aComing soon!");
                     p.closeInventory();
                 }

@@ -7,6 +7,7 @@ import org.bukkit.command.TabExecutor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Arrays;
 import java.util.List;
 
 public class CMDHandler implements TabExecutor {
@@ -25,8 +26,19 @@ public class CMDHandler implements TabExecutor {
     }
 
     @Override
-    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String s, @NotNull String[] args) {
         try {
+            switch (s) {
+                case "items", "zombiesurvival:items" -> {
+                    return List.of();
+                } case "game", "zombiesurvival:game" -> {
+                    if (args.length == 1) return Arrays.asList("start", "stop");
+                    else if (args.length == 2) {
+                        if (args[0].equals("start")) return Arrays.asList("normal", "host", "hard", "impossible");
+                        else if (args[0].equals("stop")) return List.of();
+                    }
+                }
+            }
             return null;
         } catch (Exception e) {
             Main.printException(e);

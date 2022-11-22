@@ -8,3 +8,5 @@ description: Wave-Zombie-Defence survival since 2020
 commands:
   items:
     description: 커스텀 아이템 리스트 명령어
+  game:
+    description: 게임 명령어
