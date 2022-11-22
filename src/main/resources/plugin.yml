@@ -5,3 +5,6 @@ api-version: 1.19
 authors: [ Barity_ ]
 depend: [ ProtocolLib ]
 description: Wave-Zombie-Defence survival since 2020
+commands:
+  items:
+    description: 커스텀 아이템 리스트 명령어

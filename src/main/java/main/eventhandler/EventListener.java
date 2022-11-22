@@ -56,12 +56,15 @@ public class EventListener implements Listener {
     public void onInventoryClick(InventoryClickEvent e) {
         try {
             Player p = (Player) e.getWhoClicked();
-            if (e.getView().title().equals(Component.text("§2게임 시작 메뉴"))) {
+            Component t = e.getView().title();
+            if (t.equals(Component.text("§2게임 시작 메뉴"))) {
                 e.setCancelled(true);
                 if (e.getSlot() == 10 || e.getSlot() == 12 || e.getSlot() == 14 || e.getSlot() == 16) {
                     p.sendMessage("§aComing soon!");
                     p.closeInventory();
                 }
+            } else if (t.equals(Component.text("§8커스텀 아이템들"))) {
+                if (!p.isOp()) e.setCancelled(true);
             }
         } catch (Exception e1) {
             Main.printException(e1);
