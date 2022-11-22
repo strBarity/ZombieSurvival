@@ -1,14 +1,13 @@
 package main;
 
-import cmdhandler.CMDHandler;
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.ProtocolManager;
 import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.wrappers.EnumWrappers;
-import eventhandler.EventListener;
-import gamehandler.GameHandler;
+import main.cmdhandler.CMDHandler;
+import main.eventhandler.EventListener;
+import main.gamehandler.GameHandler;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.Component;
@@ -44,6 +43,7 @@ public final class Main extends JavaPlugin {
     public static ItemStack ZOMBIE_PIECE, ZOMBIE_POWDER, ZOMBIE_POWER, ZOMBIE_TRACE, CORE_OF_PURIFICATION, CORE_OF_CREATION, CORE_OF_DESTRUCTION,
             PURIFICATION_STAFF, CREATION_WAND, DESTRUCTION_AXE, ZOMBIE_BREAKER;
     public static final List<String> EXCEPTIONS = new ArrayList<>();
+    public static final List<String> customRecipeKeys = new ArrayList<>();
     public static final List<NamespacedKey> recipeKeys = new ArrayList<>();
     private static final ConsoleCommandSender LOGGER = Bukkit.getConsoleSender();
     @Override
@@ -76,22 +76,27 @@ public final class Main extends JavaPlugin {
             DESTRUCTION_AXE = customItem(Material.NETHERITE_AXE, 1, "§e★★★ §c파괴의 도끼", Arrays.asList("§7날카로움 V", "", "§a능력: §e폭발성 날", "§6적 타격§7 시 §5낮은 확률§7로 적의 위치에", "§a5§7의 §c피해§7를 주는 강력한 §e폭발§7을 생성시킨다."), true, List.of(sh5));
             ZOMBIE_BREAKER = customItem(Material.NETHERITE_SWORD,1, "§c⭐ §4좀비 브레이커", Arrays.asList("§6날카로움 X", "", "§a능력: §d생명의 빛", "§6적 타격§7 시 §5낮은 확률§7로 §e플레이어§7는 §a2§7의 체력을", "§d회복§7하고 §2좀비§7는 §a6§7의 §c피해§7를 입는 §e폭발§7이 일어난다."), true, List.of(sh10));
 
-            ShapedRecipe r1 = new ShapedRecipe(new NamespacedKey(this, "custom_purifiacation_staff"), PURIFICATION_STAFF);
+            ShapedRecipe r1 = new ShapedRecipe(new NamespacedKey(this, "purifiacation_staff"), PURIFICATION_STAFF);
             r1.shape("PCP", "PSP", "PPP");
             r1.setIngredient('P', ZOMBIE_POWDER).setIngredient('C', CORE_OF_PURIFICATION).setIngredient('S', ZOMBIE_POWER);
             Bukkit.addRecipe(r1);
-            ShapedRecipe r2 = new ShapedRecipe(new NamespacedKey(this, "custom_creation_wand"), CREATION_WAND);
+            customRecipeKeys.add(r1.getKey().getKey());
+            ShapedRecipe r2 = new ShapedRecipe(new NamespacedKey(this, "creation_wand"), CREATION_WAND);
             r2.shape("PCP", "PSP", "PPP").setIngredient('P', ZOMBIE_POWDER).setIngredient('C', CORE_OF_CREATION).setIngredient('S', ZOMBIE_POWER);
             Bukkit.addRecipe(r2);
-            ShapedRecipe r3 = new ShapedRecipe(new NamespacedKey(this, "custom_destruction_axe"), DESTRUCTION_AXE);
+            customRecipeKeys.add(r2.getKey().getKey());
+            ShapedRecipe r3 = new ShapedRecipe(new NamespacedKey(this, "destruction_axe"), DESTRUCTION_AXE);
             r3.shape("PCP", "PSP", "PPP").setIngredient('P', ZOMBIE_POWDER).setIngredient('C', CORE_OF_DESTRUCTION).setIngredient('S', ZOMBIE_POWER);
             Bukkit.addRecipe(r3);
-            ShapedRecipe r4 = new ShapedRecipe(new NamespacedKey(this, "custom_zombie_breaker"), ZOMBIE_BREAKER);
+            customRecipeKeys.add(r3.getKey().getKey());
+            ShapedRecipe r4 = new ShapedRecipe(new NamespacedKey(this, "zombie_breaker"), ZOMBIE_BREAKER);
             r4.shape("PBP", "CSU", "PTP").setIngredient('P', ZOMBIE_PIECE).setIngredient('B', DESTRUCTION_AXE).setIngredient('C', CREATION_WAND).setIngredient('U', PURIFICATION_STAFF).setIngredient('T', ZOMBIE_TRACE).setIngredient('S', ZOMBIE_POWER);
             Bukkit.addRecipe(r4);
-            ShapedRecipe r5 = new ShapedRecipe(new NamespacedKey(this, "custom_zombie_piece"), ZOMBIE_PIECE);
+            customRecipeKeys.add(r4.getKey().getKey());
+            ShapedRecipe r5 = new ShapedRecipe(new NamespacedKey(this, "zombie_piece"), ZOMBIE_PIECE);
             r5.shape("PPP", "PPP", "PPP").setIngredient('P', ZOMBIE_POWDER);
             Bukkit.addRecipe(r5);
+            customRecipeKeys.add(r5.getKey().getKey());
 
             Bukkit.recipeIterator().forEachRemaining(recipe -> {
                 if (recipe instanceof ShapelessRecipe shapelessRecipe) {
@@ -113,7 +118,7 @@ public final class Main extends JavaPlugin {
                 public void onPacketReceiving(PacketEvent e) {
                     try {
                         Player p = e.getPlayer();
-                        if (EventListener.getNpcId().get(p).equals(e.getPacket().getIntegers().read(0)) && e.getPacket().getHands().read(0).equals(EnumWrappers.Hand.MAIN_HAND)) {
+                        if (EventListener.getNpcId().get(p).equals(e.getPacket().getIntegers().read(0))) {
                             new BukkitRunnable() {
                                 @Override
                                 public void run() {
@@ -148,11 +153,11 @@ public final class Main extends JavaPlugin {
         try {
             LOGGER.sendMessage("§4[§2ZombieSurvival§4] §c플러그인이 비활성화되었습니다.");
 
-            Bukkit.removeRecipe(new NamespacedKey(this, "custom_purifiacation_staff"));
-            Bukkit.removeRecipe(new NamespacedKey(this, "custom_creation_wand"));
-            Bukkit.removeRecipe(new NamespacedKey(this, "custom_destruction_axe"));
-            Bukkit.removeRecipe(new NamespacedKey(this, "custom_zombie_breaker"));
-            Bukkit.removeRecipe(new NamespacedKey(this, "custom_zombie_piece"));
+            Bukkit.removeRecipe(new NamespacedKey(this, "purifiacation_staff"));
+            Bukkit.removeRecipe(new NamespacedKey(this, "creation_wand"));
+            Bukkit.removeRecipe(new NamespacedKey(this, "destruction_axe"));
+            Bukkit.removeRecipe(new NamespacedKey(this, "zombie_breaker"));
+            Bukkit.removeRecipe(new NamespacedKey(this, "zombie_piece"));
 
             if (!Bukkit.getOnlinePlayers().isEmpty()) {
                 for (Player p : Bukkit.getOnlinePlayers()) {

@@ -1,8 +1,8 @@
-package eventhandler;
+package main.eventhandler;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
-import gamehandler.GameHandler;
+import main.gamehandler.GameHandler;
 import main.Main;
 import net.kyori.adventure.text.Component;
 import net.minecraft.network.protocol.game.*;
@@ -25,9 +25,7 @@ import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.*;
 
-import java.util.HashMap;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 
 public class EventListener implements Listener {
     private static final HashMap<Player, Integer> taskId = new HashMap<>();
@@ -148,7 +146,8 @@ public class EventListener implements Listener {
     @EventHandler
     public void onRecipe(PlayerRecipeDiscoverEvent e) {
         try {
-            if (e.getRecipe().getKey().contains("custom")) e.setCancelled(true);
+            String r = e.getRecipe().getKey();
+            if (!Main.customRecipeKeys.contains(r)) e.setCancelled(true);
         } catch (Exception e1) {
             Main.printException(e1);
         }
@@ -198,10 +197,10 @@ public class EventListener implements Listener {
     }
     public static void discoverRecipes(Player p) {
         p.undiscoverRecipes(Main.recipeKeys);
-        p.discoverRecipe(new NamespacedKey(Main.getPlugin(Main.class), "custom_purifiacation_staff"));
-        p.discoverRecipe(new NamespacedKey(Main.getPlugin(Main.class), "custom_creation_wand"));
-        p.discoverRecipe(new NamespacedKey(Main.getPlugin(Main.class), "custom_destruction_axe"));
-        p.discoverRecipe(new NamespacedKey(Main.getPlugin(Main.class), "custom_zombie_breaker"));
-        p.discoverRecipe(new NamespacedKey(Main.getPlugin(Main.class), "custom_zombie_piece"));
+        p.discoverRecipe(new NamespacedKey(Main.getPlugin(Main.class), "purifiacation_staff"));
+        p.discoverRecipe(new NamespacedKey(Main.getPlugin(Main.class), "creation_wand"));
+        p.discoverRecipe(new NamespacedKey(Main.getPlugin(Main.class), "destruction_axe"));
+        p.discoverRecipe(new NamespacedKey(Main.getPlugin(Main.class), "zombie_breaker"));
+        p.discoverRecipe(new NamespacedKey(Main.getPlugin(Main.class), "zombie_piece"));
     }
 }
