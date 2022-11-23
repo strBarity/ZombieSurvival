@@ -5,7 +5,7 @@ import org.bukkit.entity.Player;
 import java.util.HashMap;
 import java.util.Map;
 
-public class InvOpenCDHandler implements Runnable {
+public class InvOpenCDTimer implements Runnable {
     private static final HashMap<Player, Integer> invOpenCooldoawn = new HashMap<>();
 
     public static HashMap<Player, Integer> getInvOpenCooldoawn() {

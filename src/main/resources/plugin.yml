@@ -10,3 +10,9 @@ commands:
     description: 커스텀 아이템 리스트 명령어
   game:
     description: 게임 명령어
+  help:
+    description: 도움 명령어
+  vw:
+    description: 호환되지 않는 버전 안내 명령어
+  wave:
+    description: 웨이브 설정 명령어

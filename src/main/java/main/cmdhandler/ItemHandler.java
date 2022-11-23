@@ -1,7 +1,7 @@
 package main.cmdhandler;
 
 import main.Main;
-import main.timerhandler.InvOpenCDHandler;
+import main.timerhandler.InvOpenCDTimer;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -18,6 +18,6 @@ public class ItemHandler {
             gui.setItem(i, item);
             i++;
         } p.openInventory(gui);
-        InvOpenCDHandler.getInvOpenCooldoawn().put(p, 1);
+        InvOpenCDTimer.getInvOpenCooldoawn().put(p, 1);
     }
 }
