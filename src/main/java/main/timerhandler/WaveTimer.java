@@ -31,7 +31,7 @@ public class WaveTimer implements Runnable {
             waveCountdownSec--;
             if (waveCountdownSec <= 0 && GameHandler.wave > 0) {
                 if (waveCountdownMin > 0) {
-                    waveCountdownSec = 60;
+                    waveCountdownSec = 59;
                     waveCountdownMin--;
                 } else {
                     GameHandler.nextWave();

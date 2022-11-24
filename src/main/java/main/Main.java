@@ -14,6 +14,7 @@ import main.timerhandler.WaveTimer;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -28,6 +29,7 @@ import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scoreboard.*;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
@@ -46,7 +48,7 @@ public final class Main extends JavaPlugin {
     public static ItemStack ZOMBIE_PIECE, ZOMBIE_POWDER, ZOMBIE_POWER, ZOMBIE_TRACE, CORE_OF_PURIFICATION, CORE_OF_CREATION, CORE_OF_DESTRUCTION,
     PURIFICATION_STAFF, CREATION_WAND, DESTRUCTION_AXE, ZOMBIE_BREAKER, D_SWORD, D_HELMET, D_CHESTPLATE, D_LEGGINGS, D_BOOTS, POWER_CRYSTAL,
     GOLDEN_APPLE, D_BOW, ZOMBIE_SAND, ZOMBIE_APPLE_D, ZOMBIE_WATERDROP, ZOMBIE_GOLD, ZOMBIE_APPLE, ZOMBIE_GOLDEN_APPLE, ZOMBIEGOD_FRUIT, INFINITELIFE_OF_ZOMBIE,
-    SIMPLE_TABLE;
+    SIMPLE_TABLE, ZOMBIE_FLESH, ZOMBIE_STEAK, PREMIUM_ZOMBIE_STEAK, DEADS_MEAL;
     public static final List<String> EXCEPTIONS = new ArrayList<>();
     public static final List<NamespacedKey> customRecipeKeys = new ArrayList<>();
     public static final List<ItemStack> customItems = new ArrayList<>();
@@ -55,6 +57,7 @@ public final class Main extends JavaPlugin {
     @Override
     public void onEnable() {
         try {
+            mainBoardSet();
             startMainTask();
             LOGGER.sendMessage("§4[§2ZombieSurvival§4] §a플러그인이 활성화되었습니다.");
 
@@ -94,23 +97,29 @@ public final class Main extends JavaPlugin {
             D_LEGGINGS = customItem(Material.IRON_LEGGINGS, 1, "§e★☆☆ §f보급형 바지", List.of("§7보호 III"), false, List.of(pr3), true);
             D_BOOTS = customItem(Material.IRON_BOOTS, 1, "§e★☆☆ §f보급형 부츠", List.of("§7보호 III"), false, List.of(pr3), true);
 
+            // 소모품류
+            ZOMBIE_FLESH = customItem(Material.ROTTEN_FLESH, 1, "§e★☆☆ §c썩은 고기", Arrays.asList("§b썩은-고기-정화기§7에 사용하면.", "§7스테이크로 바꿀 수 있다 그냥은 먹지 말자. 제발.", "", "§7섭취 시:", "§8- §a배고픔 +1칸 회복", "§4- §c허기 III (00:05)", "", "§8모든 좀비에게서 §b90% §8확률로 1-5개 드랍"), false, null, true);
+            ZOMBIE_STEAK = customItem(Material.COOKED_BEEF, 1, "§e★★☆ §a좀비 스테이크", Arrays.asList("§7완전 스테이크 같지만 원재료는 놀랍게도 좀비이다.", "§7그래도 몸에는 나쁘지 않으니 안심하고 먹자.", "", "§7섭취 시:", "§8- §a배고픔 +4칸 회복", "§8- §e포만감 +8 회복"), false, null, true);
+            PREMIUM_ZOMBIE_STEAK = customItem(Material.COOKED_BEEF, 1, "§e★★★ §6단§e짠§6단§e짠 §a좀비 스테이크", Arrays.asList("§7좀비 토금과 스테이크가 만나 단짠단짠 조합을 만들어냈다.", "§7지금은 다 좀비가 된 소고기보다 맛있는 것 같다.", "", "§7섭취 시:", "§8- §a배고픔 +7칸 회복", "§8- §e포만감 +12 회복"), true, null, true);
+            ZOMBIE_TRACE = customItem(Material.POTION,1, "§c좀비의 흔적", Arrays.asList("§7원샷이 가능한 수준으로 적게 들어있다.", "§5모든 좀비 아이템의 진화 베이스가 된다.", "", "§b우클릭 시 즉시 섭취됨", "§7섭취 시:", "§8- §5즉시 치유 II §c(❤ +4칸)", "§8모든 좀비에게서 §53%§8 확률로 드랍"), true, null, true);
+            GOLDEN_APPLE = customItem(Material.GOLDEN_APPLE, 16, "§b황금 사과", Arrays.asList("§7몸에 이로운 황금으로 이루어져있다.", "", "§7섭취 시:", "§8- §d재생 II §9(0:05) §c(❤ +2칸)", "§8- §e흡수 I §9(2:00) §c(§6❤ §e2칸§c)", "§8- §a포화 IV §e(§2허기 §a4 §e회복, §5포만감 §a8 §e회복)"), false, null, true);
+            ZOMBIE_GOLD = customItem(Material.RAW_GOLD, 1, "§e★★☆ 좀비 토금", Arrays.asList("§7티끌 모아 태산을 실천했다.", "§7놀랍게도 금속이지만 먹을 수 있다.", "§e다른 음식에 합친다면 정말 별미일 것이다.", "", "§b우클릭 시 즉시 섭취됨", "§7섭취 시:", "§8- §d재생 I §9(0:05) §c(❤ +1칸)"), true, null, true);
+            ZOMBIE_APPLE = customItem(Material.APPLE, 1, "§e★★☆ §c좀비 사과", Arrays.asList("§7적당히 먹을만한 사과다.", "§7좀비의 기운이 느껴져 먹으면 특별한 효과를 줄 것 같다.", "§e하지만 일반 금이랑은 합칠 수 없다. 황금 사과로 만들 수 있을까?", "", "§7섭취 시:", "§8- §a포화 II §e(§2허기 §a2 §e회복, §5포만감 §a4 §e회복)"), true, null, true);
+            ZOMBIE_GOLDEN_APPLE = customItem(Material.ENCHANTED_GOLDEN_APPLE, 1, "§e★★★ §e좀비 §6황금§e 사과", Arrays.asList("§790%는 좀비의 물질으로 이루어졌다.", "§7일반 황금 사과보다 훨씬 좋다.", "§e더욱 강하게 만들 수 있을지도...?", "", "§7섭취 시:", "§8- §d재생 III §9(0:05) §c(❤ +5칸)", "§8- §e흡수 II §9(2:30) §c(§6❤ §e4칸§c)", "§8- §a포화 V §e(§2허기 §a5 §e회복, §5포만감 §a10 §e회복)"), true, null, true);
+            ZOMBIEGOD_FRUIT = customItem(Material.SWEET_BERRIES, 1, "§c⭐ §4좀비신의 열매", Arrays.asList("§5\"§d하루에 하나씩 100년간 먹으면 신이 될수 있어§5\"", "", "§b우클릭 시 즉시 섭취됨", "§7섭취 시:", "§8- §d재생 V §9(0:05) §c(❤ +16.6칸)", "§8- §e흡수 V §9(3:00) §c(§6❤ §e10칸§c)", "§8- §5저항 II §9(4:00) §d(피해 -40%)", "§8- §c화염 저항 §9(7:00) §4(화염 피해 무시)", "§8- §a포화 IX §e(§2허기 §a9 §e회복, §5포만감 §a18 §e회복)"), true, null, true);
+            INFINITELIFE_OF_ZOMBIE = customItem(Material.HEART_OF_THE_SEA, 1, "§c⭐ §4좀비의 영생", Arrays.asList("§5\"§d바이러스의 영생 효과만 쏙 훔쳐왔다§5\"", "", "§b우클릭 시 즉시 섭취됨", "§7섭취 시:", "§8- §c❤ §l최대 생명력 +5칸", "§8- §d재생 III §9(0:05) §c(❤ +5칸)", "§8- §e흡수 II §9(2:30) §c(§6❤ §e4칸§c)"), true, null, true);
+            DEADS_MEAL = customItem(Material.COOKED_PORKCHOP, 1, "§c⭐ §4죽은 자들의 식사", Arrays.asList("§5\"§d기능보다는 맛을 크게 중시§5\"", "", "§7섭취 시:", "§8- §e배고픔과 포만감 모두 최대치로 회복", "§8- §d§l배고픔과 포만감이 영구적으로 줄어들지 않음"), true, null, true);
             // 기타
+            ZOMBIE_SAND = customItem(Material.GLOWSTONE_DUST, 1, "§e★☆☆ §6좀비 모래", Arrays.asList("§d\"모든 모래에는 약간의 금이 포함되어 있다\"", "§7이 모래는 더더욱 그런 것 같다.", "§e많이 모으면 금으로 만들 수 있을지도...?", "", "§8모든 허스크에게서 §220%§8 확률로 드랍"), true, null, true);
+            ZOMBIE_APPLE_D = customItem(Material.APPLE, 1, "§e★☆☆ §2오염된 좀비 사과", Arrays.asList("§7이걸 떨어뜨린 좀비는 생전 사과를 좋아했던 것 같다.", "§7너무 오염되있어서 섭취할 순 없다.", "§e물 같은걸로 적당히 씻으면 섭취할 수 있을듯 하다.", "", "§8모든 미변형 좀비에게서 §220%§8 확률로 드랍"), false, null, true);
             ZOMBIE_POWDER = customItem(Material.GUNPOWDER,1, "§f좀비 가루", Arrays.asList("§7적게나마 온기가 느껴진다.", "", "§8모든 좀비에게서 §225%§8 확률로 1-3개 드랍"), false, null, true);
-            ZOMBIE_TRACE = customItem(Material.POTION,1, "§c좀비의 흔적", Arrays.asList("§7즉시 치유 II", "§e우클릭 시 즉시 사용됨", "", "§8모든 좀비에게서 §53%§8 확률로 드랍"), true, null, true);
             ZOMBIE_PIECE = customItem(Material.GREEN_DYE, 1, "§a좀비 조각", Arrays.asList("§7좀비 가루 9개를 모아 만든 조각이다.", "§7다른 물건과 조합할 수 있을 것 같다."), true, null, true);
             POWER_CRYSTAL = customItem(Material.NETHER_STAR, 1, "§b파워 결정체", Arrays.asList("§b정화기§7의 파워를 랜덤하게 충전해준다.", "", "§8모든 좀비에게서 §910%§8 확률로 드랍"), true, null, true);
             GOLDEN_APPLE = customItem(Material.GOLDEN_APPLE, 16, "§b황금 사과", Arrays.asList("§7몸에 이로운 황금으로 이루어져있다.", "", "§7섭취 시:", "§8- §d재생 II §9(0:05) §c(❤ +2칸)", "§8- §e흡수 I §9(2:00) §c(§6❤ §e2칸§c)", "§8- §a포화 IV §e(§2허기 §a4 §e회복, §5포만감 §a8 §e회복)"), false, null, true);
             CORE_OF_PURIFICATION = customItem(Material.DIAMOND,1, "§d§l정화의 코어", Arrays.asList("§d정화의 좀비§7에게서 떨어진 코어다.", "§7유용한 아이템으로 만들 수 있을 것 같다.", "", "§d정화의 좀비§8에게서 확정적으로 드랍"), true, null, true);
             CORE_OF_CREATION = customItem(Material.FEATHER,1, "§b§l창조의 코어", Arrays.asList("§b창조의 좀비§7에게서 떨어진 코어다.", "§7유용한 아이템으로 만들 수 있을 것 같다.", "", "§b창조의 좀비§8에게서 확정적으로 드랍"), true, null, true);
             CORE_OF_DESTRUCTION = customItem(Material.END_CRYSTAL,1, "§c§l파괴의 코어", Arrays.asList("§c파괴의 좀비§7에게서 떨어진 코어다.", "§7유용한 아이템으로 만들 수 있을 것 같다.", "", "§c파괴의 좀비§8에게서 확정적으로 드랍"), true, null, true);
-            ZOMBIE_SAND = customItem(Material.GLOWSTONE_DUST, 1, "§e★☆☆ §6좀비 모래", Arrays.asList("§d\"모든 모래에는 약간의 금이 포함되어 있다\"", "§7이 모래는 더더욱 그런 것 같다.", "§e많이 모으면 금으로 만들 수 있을지도...?", "", "§8모든 허스크에게서 §220%§8 확률로 드랍"), true, null, true);
-            ZOMBIE_APPLE_D = customItem(Material.APPLE, 1, "§e★☆☆ §2오염된 좀비 사과", Arrays.asList("§7이걸 떨어뜨린 좀비는 생전 사과를 좋아했던 것 같다.", "§7너무 오염되있어서 섭취할 순 없다.", "§e물 같은걸로 적당히 씻으면 섭취할 수 있을듯 하다.", "", "§8모든 미변형 좀비에게서 §220%§8 확률로 드랍"), false, null, true);
             ZOMBIE_WATERDROP = customItem(Material.LAPIS_LAZULI, 1, "§9좀비 물방울", Arrays.asList("§7드라운드에게 나온 순도 99% H₂O다.", "§7좀비에게 왜 이렇게 순도 높은 물이 있는진 모르겠지만,", "§e오염된 물체를 씻는데는 사용할 수 있을 것 같다.", "", "§8모든 드라운드에게서 §220%§8 확률로 드랍"), true, null, true);
-            ZOMBIE_GOLD = customItem(Material.RAW_GOLD, 1, "§e★★☆ 좀비 토금", Arrays.asList("§7티끌 모아 태산을 실천했다.", "§7놀랍게도 금속이지만 먹을 수 있다.", "§e다른 음식에 합친다면 정말 별미일 것이다.", "", "§7섭취 시:", "§8- §d재생 I §9(0:05) §c(❤ +1칸)"), true, null, true);
-            ZOMBIE_APPLE = customItem(Material.APPLE, 1, "§e★★☆ §c좀비 사과", Arrays.asList("§7적당히 먹을만한 사과다.", "§7좀비의 기운이 느껴져 먹으면 특별한 효과를 줄 것 같다.", "§e하지만 일반 금이랑은 합칠 수 없다. 황금 사과로 만들 수 있을까?", "", "§7섭취 시:", "§8- §a포화 II §e(§2허기 §a2 §e회복, §5포만감 §a4 §e회복)"), true, null, true);
-            ZOMBIE_GOLDEN_APPLE = customItem(Material.ENCHANTED_GOLDEN_APPLE, 1, "§e★★★ §e좀비 §6황금§e 사과", Arrays.asList("§790%는 좀비의 물질으로 이루어졌다.", "§7일반 황금 사과보다 훨씬 좋다.", "§e더욱 강하게 만들 수 있을지도...?", "", "§7섭취 시:", "§8- §d재생 III §9(0:05) §c(❤ +5칸)", "§8- §e흡수 II §9(2:30) §c(§6❤ §e4칸§c)", "§8- §a포화 V §e(§2허기 §a5 §e회복, §5포만감 §a10 §e회복)"), true, null, true);
-            ZOMBIEGOD_FRUIT = customItem(Material.SWEET_BERRIES, 1, "§c⭐ §4좀비신의 열매", Arrays.asList("§5\"§d하루에 하나씩 100년간 먹으면 신이 될수 있어§5\"", "", "§7섭취 시:", "§8- §d재생 V §9(0:05) §c(❤ +16.6칸)", "§8- §e흡수 V §9(3:00) §c(§6❤ §e10칸§c)", "§8- §5저항 II §9(4:00) §d(피해 -40%)", "§8- §c화염 저항 §9(7:00) §4(화염 피해 무시)", "§8- §a포화 IX §e(§2허기 §a9 §e회복, §5포만감 §a18 §e회복)"), true, null, true);
-            INFINITELIFE_OF_ZOMBIE = customItem(Material.HEART_OF_THE_SEA, 1, "§c⭐ §4좀비의 영생", Arrays.asList("§5\"§d바이러스의 영생 효과만 쏙 훔쳐왔다§5\"", "", "§7섭취 시:", "§8- §c❤ §l최대 생명력 +5칸", "§8- §d재생 III §9(0:05) §c(❤ +5칸)", "§8- §e흡수 II §9(2:30) §c(§6❤ §e4칸§c)"), true, null, true);
             SIMPLE_TABLE = customItem(Material.CRAFTING_TABLE, 1, "§a휴대용 작업대", Arrays.asList("§7미래 기술으로 작업대를 압축해,", "§7어디서든 큰 작업을 할 수 있는 작업대이다.", "", "§e▶ 우클릭해서 사용하기"), false, null, true);
 
             ShapedRecipe r1 = new ShapedRecipe(new NamespacedKey(Main.getPlugin(Main.class), "purifiacation_staff"), PURIFICATION_STAFF);
@@ -147,7 +156,6 @@ public final class Main extends JavaPlugin {
                     EventListener.registerNpc(p);
                     EventListener.registerTask(p);
                     EventListener.discoverRecipes(p);
-                    EventListener.mainBoardSet(p);
                 }
 
             ProtocolManager manager = ProtocolLibrary.getProtocolManager();
@@ -203,9 +211,90 @@ public final class Main extends JavaPlugin {
                     ((CraftPlayer) p).getHandle().connection.send(new ClientboundRemoveEntitiesPacket(EventListener.getNpcId().get(p)));
                 }
             }
-
+            if (GameHandler.gameStarted) {
+                GameHandler.stopGame();
+                Bukkit.broadcast(Component.text("§4서버가 리로드되어 게임이 중지되었습니다."));
+            }
         } catch (Exception e) {
             printException(e);
+        }
+    }
+    public static void mainBoardSet() {
+        try {
+            Bukkit.getScheduler().scheduleSyncRepeatingTask(Main.getPlugin(Main.class), () -> {
+                try {
+                    Scoreboard board = Bukkit.getScoreboardManager().getNewScoreboard();
+                    Objective objective = board.registerNewObjective("beforeBoard", Criteria.DUMMY, Component.text("§4Zombie Survival"));
+                    objective.setDisplaySlot(DisplaySlot.SIDEBAR);
+                    if (!Bukkit.getOnlinePlayers().isEmpty()) {
+                        for (Player p : Bukkit.getOnlinePlayers()) {
+                            if (GameHandler.gameStarted) {
+                                int n = 10;
+                                if (GameHandler.subBeaconAlive) n++;
+                                if (GameHandler.currentMode == GameHandler.Gamemode.HOST) n++;
+                                Score hum = objective.getScore("§a🗡 생존자: §c" + GameHandler.humanCount);
+                                hum.setScore(n);
+                                n--;
+                                Score inf = objective.getScore("§2☠ 감염자: §c" + GameHandler.infectCount);
+                                inf.setScore(n);
+                                n--;
+                                Score z = objective.getScore("§4남은 좀비 수: §e" + GameHandler.remainingZombies + "§c/" + GameHandler.zombieToSpawn);
+                                z.setScore(n);
+                                n--;
+                                Score b2 = objective.getScore("   ");
+                                b2.setScore(n);
+                                n--;
+                                Score w = objective.getScore("§c✉ §4웨이브: §c" + GameHandler.wave);
+                                w.setScore(n);
+                                n--;
+                                if (GameHandler.currentMode == GameHandler.Gamemode.HOST) {
+                                    Score h = objective.getScore("§4⚔ 숙주 등장: §c웨이브 " + GameHandler.finalWave);
+                                    h.setScore(n);
+                                    n--;
+                                }
+                                Score t;
+                                if (WaveTimer.getWaveCountdownSec() < 10)
+                                    t = objective.getScore(String.format("§e⏳ 남은 웨이브 시간: §a%d:0%d", WaveTimer.getWaveCountdownMin(), WaveTimer.getWaveCountdownSec()));
+                                else
+                                    t = objective.getScore(String.format("§e⏳ 웨이브 시간: §a%d:%d", WaveTimer.getWaveCountdownMin(), WaveTimer.getWaveCountdownSec()));
+                                t.setScore(n);
+                                n--;
+                                Score b = objective.getScore("§b⚡ 정화기 파워§f: §b" + GameHandler.beaconPower);
+                                b.setScore(n);
+                                n--;
+                                if (GameHandler.subBeaconAlive) {
+                                    Score s = objective.getScore("§b⚡ §9제2 정화기§b 파워§f: §b" + GameHandler.subBeaconPower);
+                                    s.setScore(n);
+                                    n--;
+                                }
+                                Score b1 = objective.getScore("  ");
+                                b1.setScore(n);
+                                n--;
+                                Score o;
+                                if (GameHandler.oxygenStarted)
+                                    o = objective.getScore("§b☢ §c산소§f: §e" + OxygenTimer.getOxygen().get(p));
+                                else o = objective.getScore("§b☢ §7산소§f: §f" + OxygenTimer.getOxygen().get(p));
+                                o.setScore(n);
+                                Team team = board.registerNewTeam(p.getName());
+                                if (GameHandler.playerType.get(p).equals(GameHandler.PlayerType.SURVIVE)) {
+                                    team.color(NamedTextColor.AQUA);
+                                } else {
+                                    team.color(NamedTextColor.DARK_GREEN);
+                                } team.addEntry(p.getName());
+                                Score b4 = objective.getScore(" ");
+                                b4.setScore(1);
+                                Score a = objective.getScore("§eping§f: " + p.getPing() + "ms");
+                                a.setScore(0);
+                                p.setScoreboard(board);
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    Main.printException(e);
+                }
+            }, 0, 20);
+        } catch (Exception e) {
+            Main.printException(e);
         }
     }
     public static void startMainTask() {

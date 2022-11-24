@@ -3,9 +3,12 @@ package main.eventhandler;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import main.Main;
+import main.cmdhandler.CMDHandler;
 import main.gamehandler.GameHandler;
-import main.timerhandler.OxygenTimer;
-import main.timerhandler.WaveTimer;
+import main.gamehandler.GameHandler.PlayerType;
+import main.parsehandler.ZombieParser;
+import net.kyori.adventure.key.Key;
+import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.Component;
 import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -16,31 +19,94 @@ import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.craftbukkit.v1_19_R1.entity.CraftPlayer;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.entity.FoodLevelChangeEvent;
+import org.bukkit.event.entity.*;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.*;
-import org.bukkit.scoreboard.*;
 
 import java.util.HashMap;
 import java.util.Objects;
 import java.util.UUID;
 
+import static main.gamehandler.GameHandler.playerType;
+
 public class EventListener implements Listener {
     private static final HashMap<Player, Integer> taskId = new HashMap<>();
-    private static final HashMap<Player, Integer> boardId = new HashMap<>();
     private static final HashMap<Player, Integer> npcId = new HashMap<>();
 
     public static HashMap<Player, Integer> getNpcId() {
         return npcId;
     }
-
+    @EventHandler
+    public void onDeath(PlayerDeathEvent e) {
+        Player p = e.getPlayer();
+        if (playerType.get(p).equals(PlayerType.SURVIVE)) {
+            e.setCancelled(true);
+            for (Player player : Bukkit.getOnlinePlayers()) player.playSound(Sound.sound(Key.key("minecraft:entity.zombie_villager.cure"), Sound.Source.MASTER, 0.5F, 1));
+            Bukkit.broadcast(Component.text("§2☠ " + p.getName() + "§c님이 §4좀비가 되셨습니다."));
+            playerType.put(p, PlayerType.INFECTED);
+            p.setHealth(p.getHealthScale());
+            p.getInventory().clear();
+            GameHandler.humanCount--;
+            GameHandler.infectCount++;
+        }
+    }
+    @EventHandler
+    public void onKill(EntityDeathEvent e) {
+        try {
+            if (e.getEntityType().equals(EntityType.ZOMBIE) || e.getEntityType().equals(EntityType.HUSK) || e.getEntityType().equals(EntityType.DROWNED)) {
+                GameHandler.remainingZombies--;
+                if (GameHandler.remainingZombies <= 0) GameHandler.nextWave();
+                e.getDrops().clear();
+            }
+        } catch (Exception e1) {
+            Main.printException(e1);
+        }
+    }
+    @EventHandler
+    public void onAttack(EntityDamageByEntityEvent e) {
+        try {
+            if (!GameHandler.gameStarted) e.setCancelled(true);
+            if (GameHandler.gameStarted && e.getEntity().getType().equals(EntityType.PLAYER) && e.getDamager().getType().equals(EntityType.PLAYER)) {
+                if (playerType.get((Player) e.getDamager()).equals(playerType.get((Player) e.getEntity()))) e.setCancelled(true);
+                else e.setDamage(4);
+            } if (ZombieParser.isZombie(e.getEntity())) {
+                if (e.getDamager().getType().equals(EntityType.PLAYER) && playerType.get((Player) e.getDamager()).equals(PlayerType.INFECTED)) e.setCancelled(true);
+                else {
+                    e.getEntity().getWorld().spawnParticle(Particle.BLOCK_DUST, e.getEntity().getLocation(), 10, 0.25, 0.25, 0.25, 0, Material.REDSTONE_BLOCK.createBlockData(), true);
+                    ((LivingEntity) e.getEntity()).setNoDamageTicks(0);
+                }
+            } if (ZombieParser.isZombie(e.getDamager()) && e.getEntity() instanceof Player) {
+                if (!playerType.get((Player) e.getEntity()).equals(PlayerType.SURVIVE)) e.setCancelled(true);
+            }
+        } catch (Exception e1) {
+            Main.printException(e1);
+        }
+    }
+    @EventHandler
+    public void onDamage(EntityDamageEvent e) {
+        try {
+            if (!GameHandler.gameStarted) e.setCancelled(true);
+            if (ZombieParser.isZombie(e.getEntity())) {
+                e.getEntity().getWorld().spawnParticle(Particle.BLOCK_DUST, e.getEntity().getLocation(), 10, 0.25, 0.25, 0.25, 0, Material.REDSTONE_BLOCK.createBlockData(), true);
+                if (e.getEntity().getType().equals(EntityType.HUSK) && e.getCause().equals(EntityDamageEvent.DamageCause.SUFFOCATION)) {
+                    ((LivingEntity) e.getEntity()).setNoDamageTicks(20);
+                    e.setCancelled(true);
+                    e.getEntity().teleport(new Location(e.getEntity().getWorld(), e.getEntity().getLocation().getX(), e.getEntity().getLocation().getY() + 1, e.getEntity().getLocation().getX()));
+                    e.getEntity().getWorld().spawnParticle(Particle.BLOCK_DUST, e.getEntity().getLocation(), 5, 0.25, 0.25, 0.25, 0, Material.SAND.createBlockData(), true);
+                } else ((LivingEntity) e.getEntity()).setNoDamageTicks(0);
+            }
+        } catch (Exception e1) {
+            Main.printException(e1);
+        }
+    }
     @EventHandler
     public void onInteract(PlayerInteractEvent e) {
         try {
@@ -112,7 +178,6 @@ public class EventListener implements Listener {
             registerTask(p);
             registerNpc(p);
             discoverRecipes(p);
-            mainBoardSet(p);
             Objects.requireNonNull(p.getAttribute(Attribute.GENERIC_ATTACK_SPEED)).setBaseValue(Double.MAX_VALUE);
         } catch (Exception e1) {
             Main.printException(e1);
@@ -124,23 +189,6 @@ public class EventListener implements Listener {
             Player p = e.getPlayer();
             e.quitMessage(Component.text("| §e" + p.getName() + "§6님이 퇴장했습니다."));
             Bukkit.getScheduler().cancelTask(taskId.get(p));
-            Bukkit.getScheduler().cancelTask(boardId.get(p));
-        } catch (Exception e1) {
-            Main.printException(e1);
-        }
-    }
-    @EventHandler
-    public void onAttack(EntityDamageByEntityEvent e) {
-        try {
-            if (!GameHandler.gameStarted) e.setCancelled(true);
-        } catch (Exception e1) {
-            Main.printException(e1);
-        }
-    }
-    @EventHandler
-    public void onDamage(EntityDamageEvent e) {
-        try {
-            if (!GameHandler.gameStarted) e.setCancelled(true);
         } catch (Exception e1) {
             Main.printException(e1);
         }
@@ -166,62 +214,16 @@ public class EventListener implements Listener {
             Main.printException(e1);
         }
     }
-    public static void mainBoardSet(Player p) {
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onCommand(PlayerCommandPreprocessEvent e) {
         try {
-            int i = Bukkit.getScheduler().scheduleSyncRepeatingTask(Main.getPlugin(Main.class), () -> {
-                Scoreboard board = Bukkit.getScoreboardManager().getNewScoreboard();
-                Objective objective = board.registerNewObjective("beforeBoard", Criteria.DUMMY, Component.text("§4Zombie Survival"));
-                objective.setDisplaySlot(DisplaySlot.SIDEBAR);
-                if (GameHandler.gameStarted) {
-                    int n = 10;
-                    if (GameHandler.subBeaconAlive) n++;
-                    if (GameHandler.currentMode == GameHandler.Gamemode.HOST) n++;
-                    Score hum = objective.getScore("§a🗡 생존자: §c" + GameHandler.humanCount);
-                    hum.setScore(n); n--;
-                    Score inf = objective.getScore("§2☠ 감염자: §c" + GameHandler.infectCount);
-                    inf.setScore(n); n--;
-                    Score z = objective.getScore("§4좀비 수: §e" + GameHandler.zombieCount + "§c/" + GameHandler.zombieToSpawn);
-                    z.setScore(n); n--;
-                    Score b2 = objective.getScore("   ");
-                    b2.setScore(n); n--;
-                    Score w = objective.getScore("§c✉ §4웨이브: §c" + GameHandler.wave);
-                    w.setScore(n); n--;
-                    if (GameHandler.currentMode == GameHandler.Gamemode.HOST) {
-                        Score h = objective.getScore("§4⚔ 숙주 등장: §c웨이브 " + GameHandler.finalWave);
-                        h.setScore(n); n--;
-                    } Score t;
-                    if (WaveTimer.getWaveCountdownSec() < 10) t = objective.getScore(String.format("§e⏳ 남은 웨이브 시간: §a%d:0%d", WaveTimer.getWaveCountdownMin(), WaveTimer.getWaveCountdownSec()));
-                    else t = objective.getScore(String.format("§e⏳ 웨이브 시간: §a%d:%d", WaveTimer.getWaveCountdownMin(), WaveTimer.getWaveCountdownSec()));
-                    t.setScore(n); n--;
-                    Score b = objective.getScore("§b⚡ 정화기 파워§f: §b" + GameHandler.beaconPower);
-                    b.setScore(n); n--;
-                    if (GameHandler.subBeaconAlive) {
-                        Score s = objective.getScore("§b⚡ §9제2 정화기§b 파워§f: §b" + GameHandler.subBeaconPower);
-                        s.setScore(n); n--;
-                    } Score b1 = objective.getScore("  ");
-                    b1.setScore(n); n--;
-                    Score o;
-                    if (GameHandler.oxygenStarted) o = objective.getScore("§b☢ §c산소§f: §e" + OxygenTimer.getOxygen().get(p));
-                    else o = objective.getScore("§b☢ §7산소§f: §f" + OxygenTimer.getOxygen().get(p));
-                    o.setScore(n);
-                } Score b = objective.getScore(" ");
-                b.setScore(1);
-                String ping;
-                if (p.getPing() < 10) ping = "§9" + p.getPing();
-                else if (p.getPing() < 50) ping = "§b" + p.getPing();
-                else if (p.getPing() < 100) ping = "§2" + p.getPing();
-                else if (p.getPing() < 200) ping = "§a" + p.getPing();
-                else if (p.getPing() < 300) ping = "§e" + p.getPing();
-                else if (p.getPing() < 400) ping = "§6" + p.getPing();
-                else if (p.getPing() < 500) ping = "§c" + p.getPing();
-                else ping = "§4" + p.getPing();
-                Score a = objective.getScore("§eping§f: " + ping + "ms");
-                a.setScore(0);
-                p.setScoreboard(board);
-            }, 0, 20);
-            boardId.put(p, i);
-        } catch (Exception e) {
-            Main.printException(e);
+            for (String s : CMDHandler.blackList)
+                if (e.getMessage().toLowerCase().startsWith("/" + s + " ")) {
+                    e.setCancelled(true);
+                    e.getPlayer().sendMessage("§4해당 명령어는 사용이 금지되었습니다.");
+                }
+        } catch (Exception e1) {
+            Main.printException(e1);
         }
     }
 

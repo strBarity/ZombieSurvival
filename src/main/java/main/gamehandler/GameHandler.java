@@ -1,34 +1,38 @@
 package main.gamehandler;
 
 import main.Main;
+import main.parsehandler.PlayerParser;
+import main.parsehandler.ZombieParser;
 import main.timerhandler.OxygenTimer;
 import main.timerhandler.WaveTimer;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.title.Title;
 import org.bukkit.*;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.*;
 import org.bukkit.inventory.PlayerInventory;
-import org.bukkit.scoreboard.Team;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 
 public class GameHandler {
     public enum Gamemode { NORMAL, HOST, HARD, IMPOSSIBLE }
+    public enum PlayerType { SURVIVE, INFECTED, SPECTATOR }
     public static Gamemode currentMode = null;
     public static boolean gameStarted = false;
     public static boolean beaconAlive = true;
     public static boolean subBeaconAlive = false;
     public static boolean oxygenStarted = false;
+    public static int spwanTaskId = 0;
     public static int humanCount = 0;
     public static int infectCount = 0;
     public static int zombieToSpawn = 0;
     public static int zombieCount = 0;
+    public static int remainingZombies = 0;
     public static int beaconPower = 0;
     public static int subBeaconPower = 0;
     public static int beaconDurability = 0;
@@ -37,24 +41,7 @@ public class GameHandler {
     public static int finalWave = 0;
     public static int oxygenDecreaseForce = 1;
     public static double zombieDamageMult = 1;
-    public static final Team human; static {
-        Team team = Bukkit.getScoreboardManager().getMainScoreboard().getTeam("human");
-        if (team == null) {
-            team = Bukkit.getScoreboardManager().getMainScoreboard().registerNewTeam("human");
-            team.color(NamedTextColor.AQUA);
-            team.displayName(Component.text("§b생존자"));
-            team.setOption(Team.Option.COLLISION_RULE, Team.OptionStatus.NEVER);
-        } human = team;
-    }
-    public static final Team zombie; static {
-        Team team = Bukkit.getScoreboardManager().getMainScoreboard().getTeam("zombie");
-        if (team == null) {
-            team = Bukkit.getScoreboardManager().getMainScoreboard().registerNewTeam("zombie");
-            team.color(NamedTextColor.GREEN);
-            team.displayName(Component.text("§2좀비"));
-            team.setOption(Team.Option.COLLISION_RULE, Team.OptionStatus.NEVER);
-        } zombie = team;
-    }
+    public static final HashMap<Player, PlayerType> playerType = new HashMap<>();
 
     public static void startGame(Gamemode gamemode) {
         try {
@@ -62,6 +49,7 @@ public class GameHandler {
             List<Player> players = new ArrayList<>(Bukkit.getOnlinePlayers());
             World world = Objects.requireNonNull(Bukkit.getWorld("world"));
             WaveTimer.firstWaveCountdown();
+            startZombieSpawn();
             gameStarted = true;
             beaconAlive = true;
             subBeaconAlive = false;
@@ -75,31 +63,37 @@ public class GameHandler {
             wave = 0;
             oxygenDecreaseForce = 1;
             zombieToSpawn = 0;
+            remainingZombies = 0;
             world.getBlockAt(252, 70, 208).setType(Material.BEACON);
             if (gamemode.equals(Gamemode.NORMAL)) {
                 for (Player p : players) {
+                    playerType.put(p, PlayerType.SURVIVE);
                     OxygenTimer.getOxygen().put(p, 100);
+                    p.setTotalExperience(0);
                     p.sendMessage("§a§l게임이 시작되었습니다. §a(일반 모드)");
                     p.showTitle(Title.title(Component.text("§c게임 시작"), Component.text("§e30초 후 1 웨이브 시작"), Title.Times.times(Duration.ofSeconds(1), Duration.ofSeconds(8), Duration.ofSeconds(1))));
-                    human.addEntity(p);
+
                     p.playSound(Sound.sound(Key.key("minecraft:entity.wither.spawn"), Sound.Source.MASTER, 1, 0.5F));
                     p.getInventory().clear();
-                    p.setGlowing(true);
                     p.setGameMode(GameMode.SURVIVAL);
                     p.setHealth(p.getHealthScale());
                     p.setFoodLevel(20);
+                    p.setGlowing(true);
                     p.setSaturation(10);
                     p.closeInventory();
                     PlayerInventory inv = p.getInventory();
                     inv.setItem(0, Main.D_SWORD);
                     inv.setItem(1, Main.D_BOW);
                     inv.setItem(2, Main.GOLDEN_APPLE);
+                    inv.setItem(8, Main.SIMPLE_TABLE);
                     inv.setItem(39, Main.D_HELMET);
                     inv.setItem(38, Main.D_CHESTPLATE);
                     inv.setItem(37, Main.D_LEGGINGS);
                     inv.setItem(36, Main.D_BOOTS);
-                    p.teleport(new Location(world, 241.5 - 1 + (Math.random() * 3), 70, 209.5 - 1 + (Math.random() * 3)));
-                } Bukkit.getScheduler().scheduleSyncDelayedTask(Main.getPlugin(Main.class), GameHandler::nextWave, 600L);
+                    p.teleport(new Location(world, 241.5 - 1 + (Math.random() * 2), 70, 209.5 - 1 + (Math.random() * 2)));
+                } Bukkit.getScheduler().scheduleSyncDelayedTask(Main.getPlugin(Main.class), () -> {
+                    if (gameStarted) nextWave();
+                }, 600L);
             } else if (gamemode.equals(Gamemode.HOST)) {
                 finalWave = Bukkit.getOnlinePlayers().size() * ((int) Math.round(1 + Math.random()));
             }
@@ -109,10 +103,12 @@ public class GameHandler {
     }
 
     public static void nextWave() {
+        zombieCount = 0;
         WaveTimer.resetWaveCountdown();
         wave++;
         for (Player p : Bukkit.getOnlinePlayers()) {
             zombieToSpawn = (int) Math.round(wave * 2 + (Math.random() * 10 + wave)) + 10;
+            remainingZombies = zombieToSpawn;
             switch (wave) {
                 case 50 -> {
                     oxygenStarted = true;
@@ -152,10 +148,54 @@ public class GameHandler {
         }
     }
 
+
+    public static void startZombieSpawn() {
+        spwanTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(Main.getPlugin(Main.class), () -> {
+            if (wave > 0 && zombieCount < zombieToSpawn && Math.random() < 0.2) {
+                zombieCount++;
+                final double x = 140.0 + (Math.random() * 200);
+                double y = 63;
+                final double z = 108.0 + (Math.random() * 200);
+                final double zombieTypeR = Math.random();
+                while (Objects.requireNonNull(Bukkit.getWorld("world")).getBlockAt((int) Math.round(x), (int) Math.round(y), (int) Math.round(z)).getType() != Material.AIR) y++;
+                Location l = new Location(Bukkit.getWorld("world"), x, y, z);
+                if (zombieTypeR < 0.5) {
+                    Bukkit.getScheduler().scheduleSyncDelayedTask(Main.getPlugin(Main.class), () -> {
+                        Zombie zombie = Objects.requireNonNull(Bukkit.getWorld("world")).spawn(l, Zombie.class);
+                        ZombieParser.asCustomZombie(zombie);
+                    }, 200L);
+                } else if (zombieTypeR < 0.85) {
+                    Bukkit.getScheduler().scheduleSyncDelayedTask(Main.getPlugin(Main.class), () -> {
+                        Husk husk = Objects.requireNonNull(Bukkit.getWorld("world")).spawn(new Location(Bukkit.getWorld("world"), x, 60, z), Husk.class);
+                        ZombieParser.asCustomZombie(husk);
+                    }, 200L);
+                } else {
+                    Bukkit.getScheduler().scheduleSyncDelayedTask(Main.getPlugin(Main.class), () -> {
+                        Drowned drowned = Objects.requireNonNull(Bukkit.getWorld("world")).spawn(l, Drowned.class);
+                        ZombieParser.asCustomZombie(drowned);
+                    }, 200L);
+                }
+            } for (Entity e : Objects.requireNonNull(Bukkit.getWorld("world")).getEntities()) {
+                if (ZombieParser.isZombie(e)) {
+                    switch (e.getType()) {
+                        case ZOMBIE -> ((Zombie) e).setTarget(PlayerParser.getNearestPlayer(e));
+                        case HUSK -> ((Husk) e).setTarget(PlayerParser.getNearestPlayer(e));
+                        case DROWNED -> ((Drowned) e).setTarget(PlayerParser.getNearestPlayer(e));
+                        case ZOMBIE_VILLAGER -> ((ZombieVillager) e).setTarget(PlayerParser.getNearestPlayer(e));
+                        default -> throw new IllegalStateException("올바르지 않은 좀비가 좀비 타입에 대입되었습니다");
+                    }
+                }
+            }
+        }, 0, 1L);
+    }
+
     public static void stopGame() {
         try {
             gameStarted = false;
-            for (Player p : Bukkit.getOnlinePlayers()) {
+            Bukkit.getScheduler().cancelTask(spwanTaskId);
+            for (Entity entity : Objects.requireNonNull(Bukkit.getWorld("world")).getEntities()) {
+                if (entity.getType().equals(EntityType.ZOMBIE) || entity.getType().equals(EntityType.HUSK) || entity.getType().equals(EntityType.DROWNED) || entity.getType().equals(EntityType.SNOWMAN)) entity.remove();
+            } for (Player p : Bukkit.getOnlinePlayers()) {
                 p.teleport(new Location(p.getWorld(), 240.5, 224.0, 208.5));
                 p.getInventory().clear();
                 p.setGlowing(false);
@@ -165,8 +205,6 @@ public class GameHandler {
                 p.setSaturation(0);
                 p.closeInventory();
                 p.sendMessage("§c게임이 중지되었습니다.");
-                human.removeEntries(human.getEntries());
-                zombie.removeEntries(zombie.getEntries());
             }
         } catch (Exception e) {
             Main.printException(e);

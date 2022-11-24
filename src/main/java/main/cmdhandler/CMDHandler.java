@@ -18,10 +18,7 @@ public class CMDHandler implements TabExecutor {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String s, @NotNull String[] args) {
         try {
-            if (blackList.contains(s)) {
-                sender.sendMessage("§4해당 명령어는 사용이 금지되었습니다. §c(BLACKLISTED)");
-                return true;
-            } switch (s) {
+            switch (s) {
                 case "items", "zombiesurvival:items" -> {
                     ItemHandler.onCommand(sender);
                     return true;
