@@ -7,6 +7,9 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 public class GameTHandler {
+    /**
+     * 게임의 전반적인 흐름을 설정함, OP가 있어야 사용 가능함.
+     */
     public static void onCommand(CommandSender commandSender, String[] args) {
         Player p = (Player) commandSender;
         if (!p.isOp()) {

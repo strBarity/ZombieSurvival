@@ -5,7 +5,7 @@ import com.mojang.authlib.properties.Property;
 import main.Main;
 import main.cmdhandler.CMDHandler;
 import main.gamehandler.GameHandler;
-import main.gamehandler.GameHandler.PlayerType;
+import main.parsehandler.PlayerParser;
 import main.parsehandler.ZombieParser;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
@@ -30,12 +30,14 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.*;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.*;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
+import org.jetbrains.annotations.NotNull;
 
-import java.util.HashMap;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 
-import static main.gamehandler.GameHandler.playerType;
+import static main.gamehandler.GameHandler.*;
 
 public class EventListener implements Listener {
     private static final HashMap<Player, Integer> taskId = new HashMap<>();
@@ -45,17 +47,59 @@ public class EventListener implements Listener {
         return npcId;
     }
     @EventHandler
-    public void onDeath(PlayerDeathEvent e) {
-        Player p = e.getPlayer();
-        if (playerType.get(p).equals(PlayerType.SURVIVE)) {
-            e.setCancelled(true);
-            for (Player player : Bukkit.getOnlinePlayers()) player.playSound(Sound.sound(Key.key("minecraft:entity.zombie_villager.cure"), Sound.Source.MASTER, 0.5F, 1));
-            Bukkit.broadcast(Component.text("§2☠ " + p.getName() + "§c님이 §4좀비가 되셨습니다."));
-            playerType.put(p, PlayerType.INFECTED);
-            p.setHealth(p.getHealthScale());
-            p.getInventory().clear();
-            GameHandler.humanCount--;
-            GameHandler.infectCount++;
+    public void onDeath(@NotNull PlayerDeathEvent e) {
+        try {
+            Player p = e.getPlayer();
+            if (playerType.get(p).equals(PlayerType.SURVIVE)) {
+                e.setCancelled(true);
+                GameHandler.humanCount--;
+                GameHandler.infectCount++;
+                for (Player player : Bukkit.getOnlinePlayers())
+                    player.playSound(Sound.sound(Key.key("minecraft:entity.zombie_villager.cure"), Sound.Source.MASTER, 0.5F, 1));
+                Bukkit.broadcast(Component.text("§2☠ " + p.getName() + "§c님이 §4좀비가 되셨습니다."));
+                playerType.put(p, PlayerType.INFECTED);
+                p.setHealth(p.getHealthScale());
+                p.setNoDamageTicks(0);
+                p.setMaximumNoDamageTicks(0);
+                p.addPotionEffects(Arrays.asList(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, Integer.MAX_VALUE, 1, false, false), new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 2, false, false)));
+                Main.title(p, "§2☠ §4좀비가 되셨습니다. §2☠", "§e사망 시 10초 후 다른 장소에서 다시 부활합니다.", 1, 8, 1);
+                for (ItemStack i : p.getInventory().getContents()) {
+                    if (i != null) {
+                        p.getWorld().dropItem(p.getLocation(), i);
+                    }
+                } p.getInventory().clear();
+                if (humanCount == 0) {
+                    Main.delay(() -> Bukkit.broadcast(Component.text("§c§o...결국 모든 원정대 멤버는 좀비가 되었고,")), 100);
+                    Main.delay(() -> Bukkit.broadcast(Component.text("§c§o...좀비 핵심 처치 원정은 실패로 돌아가게 되었습니다.")), 200);
+                    Main.delay(() -> Bukkit.broadcast(Component.text("§c§o...그렇게 남은 생존자 또한 한 자릿 수에 가까워졌고,")), 300);
+                    Main.delay(() -> Bukkit.broadcast(Component.text("§4§o...인류는 바이러스에게 지배당하는 어두운 결말을 맞이하게 되었습니다...")), 400);
+                    Main.delay(() -> {
+                        Bukkit.broadcast(Component.text("§c----------------------"));
+                        Bukkit.broadcast(Component.text("§c§l패배 §4(모든 플레이어 사망)"));
+                        Bukkit.broadcast(Component.text("§c----------------------"));
+                        stopGame();
+                    }, 500);
+                }
+            } else if (playerType.get(p).equals(PlayerType.INFECTED)) {
+                e.setCancelled(true);
+                p.setHealth(p.getHealthScale());
+                p.getInventory().clear();
+                p.setGameMode(GameMode.SPECTATOR);
+                p.setGlowing(false);
+                Main.title(p, "§c사망하셨습니다.", "§b10§e초 후 부활합니다", 0, 1, 0);
+                for (int i = 1; i < 10; i++) {
+                    final int sec = 10 - i;
+                    Main.delay(() -> Main.title(p, "§c사망하셨습니다.", "§b" + sec + "§e초 후 부활합니다", 0, 2, 0), i * 20);
+                } Main.delay(() -> {
+                    List<Location> spawnLocation = Main.spawnLoc;
+                    Collections.shuffle(spawnLocation);
+                    p.teleport(spawnLocation.get(1));
+                    p.setGameMode(GameMode.SURVIVAL);
+                    p.setGlowing(true);
+                }, 200);
+            }
+        } catch (Exception e1) {
+            Main.printException(e1);
         }
     }
     @EventHandler
@@ -73,10 +117,14 @@ public class EventListener implements Listener {
     @EventHandler
     public void onAttack(EntityDamageByEntityEvent e) {
         try {
-            if (!GameHandler.gameStarted) e.setCancelled(true);
-            if (GameHandler.gameStarted && e.getEntity().getType().equals(EntityType.PLAYER) && e.getDamager().getType().equals(EntityType.PLAYER)) {
+            if (!GameHandler.gameStarted) {
+                e.setCancelled(true);
+                return;
+            } if (e.getEntity().getType().equals(EntityType.PLAYER) && playerType.get((Player) e.getEntity()).equals(PlayerType.INFECTED)) {
+                ((Player) e.getEntity()).setNoDamageTicks(0);
+                ((Player) e.getEntity()).setMaximumNoDamageTicks(0);
+            } if (GameHandler.gameStarted && e.getEntity().getType().equals(EntityType.PLAYER) && e.getDamager().getType().equals(EntityType.PLAYER)) {
                 if (playerType.get((Player) e.getDamager()).equals(playerType.get((Player) e.getEntity()))) e.setCancelled(true);
-                else e.setDamage(4);
             } if (ZombieParser.isZombie(e.getEntity())) {
                 if (e.getDamager().getType().equals(EntityType.PLAYER) && playerType.get((Player) e.getDamager()).equals(PlayerType.INFECTED)) e.setCancelled(true);
                 else {
@@ -102,10 +150,32 @@ public class EventListener implements Listener {
                     e.getEntity().teleport(new Location(e.getEntity().getWorld(), e.getEntity().getLocation().getX(), e.getEntity().getLocation().getY() + 1, e.getEntity().getLocation().getX()));
                     e.getEntity().getWorld().spawnParticle(Particle.BLOCK_DUST, e.getEntity().getLocation(), 5, 0.25, 0.25, 0.25, 0, Material.SAND.createBlockData(), true);
                 } else ((LivingEntity) e.getEntity()).setNoDamageTicks(0);
-            }
+            } if (e.getEntity().getType().equals(EntityType.PLAYER) && playerType.get((Player) e.getEntity()).equals(PlayerType.INFECTED)) e.setCancelled(true);
         } catch (Exception e1) {
             Main.printException(e1);
         }
+    }
+    @EventHandler
+    public void onTarget(EntityTargetEvent e) {
+        if (!e.getReason().equals(EntityTargetEvent.TargetReason.CUSTOM)) {
+            e.setCancelled(true);
+            e.setTarget(PlayerParser.getNearestPlayer(e.getEntity()));
+        }
+    }
+    @EventHandler
+    public void onTarget(EntityTargetLivingEntityEvent e) {
+        if (!e.getReason().equals(EntityTargetEvent.TargetReason.CUSTOM)) {
+            e.setCancelled(true);
+            e.setTarget(PlayerParser.getNearestPlayer(e.getEntity()));
+        }
+    }
+    @EventHandler
+    public void onPickup(@NotNull PlayerAttemptPickupItemEvent e) {
+        if (playerType.get(e.getPlayer()).equals(PlayerType.INFECTED)) e.setCancelled(true);
+    }
+    @EventHandler
+    public void onArrowPickup(PlayerPickupArrowEvent e) {
+        if (playerType.get(e.getPlayer()).equals(PlayerType.INFECTED)) e.setCancelled(true);
     }
     @EventHandler
     public void onInteract(PlayerInteractEvent e) {
@@ -200,6 +270,10 @@ public class EventListener implements Listener {
                 e.setCancelled(true);
                 e.getEntity().setFoodLevel(20);
                 e.getEntity().setSaturation(0);
+            } else if (playerType.get((Player) e.getEntity()).equals(PlayerType.INFECTED)) {
+                e.setCancelled(true);
+                e.getEntity().setFoodLevel(20);
+                e.getEntity().setSaturation(20);
             }
         } catch (Exception e1) {
             Main.printException(e1);
@@ -229,14 +303,14 @@ public class EventListener implements Listener {
 
     public static void registerTask(Player p) {
         try {
-            int i = Bukkit.getScheduler().scheduleSyncRepeatingTask(Main.getPlugin(Main.class), () -> {
+            int i = Main.repeat(() -> {
                 try {
                     if (!GameHandler.gameStarted && p.getLocation().getY() < 219 && p.getGameMode().equals(GameMode.SURVIVAL))
                         p.teleport(new Location(p.getWorld(), 240.5, 224.0, 208.5));
                 } catch (Exception e1) {
                     Main.printException(e1);
                 }
-            }, 0, 1);
+            }, 1);
             taskId.put(p, i);
         } catch (Exception e2) {
             Main.printException(e2);
@@ -262,14 +336,14 @@ public class EventListener implements Listener {
             connection.send(new ClientboundSetEntityDataPacket(npc.getId(), data, true));
             connection.send(new ClientboundRotateHeadPacket(npc, (byte) 0));
             connection.send(new ClientboundMoveEntityPacket.Rot(npc.getBukkitEntity().getEntityId(), (byte) 0, (byte) 0, true));
-            Bukkit.getScheduler().scheduleSyncDelayedTask(Main.getPlugin(Main.class), () -> connection.send(new ClientboundPlayerInfoPacket(ClientboundPlayerInfoPacket.Action.REMOVE_PLAYER, npc)), 1L);
+            Main.delay(() -> connection.send(new ClientboundPlayerInfoPacket(ClientboundPlayerInfoPacket.Action.REMOVE_PLAYER, npc)), 1);
             connection.send(new ClientboundRemoveEntitiesPacket());
             npcId.put(p, npc.getBukkitEntity().getEntityId());
         } catch (Exception e) {
             Main.printException(e);
         }
     }
-    public static void discoverRecipes(Player p) {
+    public static void discoverRecipes(@NotNull Player p) {
         p.undiscoverRecipes(Main.recipeKeys);
         for (NamespacedKey key : Main.customRecipeKeys) p.discoverRecipe(key);
     }

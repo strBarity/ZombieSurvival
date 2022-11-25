@@ -8,6 +8,8 @@ import com.comphenix.protocol.events.PacketEvent;
 import main.cmdhandler.CMDHandler;
 import main.eventhandler.EventListener;
 import main.gamehandler.GameHandler;
+import main.parsehandler.PlayerParser;
+import main.parsehandler.ZombieParser;
 import main.timerhandler.InvOpenCDTimer;
 import main.timerhandler.OxygenTimer;
 import main.timerhandler.WaveTimer;
@@ -15,8 +17,10 @@ import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.title.Title;
 import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
@@ -24,7 +28,7 @@ import org.bukkit.block.EndGateway;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.craftbukkit.v1_19_R1.entity.CraftPlayer;
 import org.bukkit.enchantments.Enchantment;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.*;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -33,6 +37,7 @@ import org.bukkit.scoreboard.*;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
+import java.time.Duration;
 import java.util.*;
 
 import static java.lang.String.format;
@@ -48,11 +53,12 @@ public final class Main extends JavaPlugin {
     public static ItemStack ZOMBIE_PIECE, ZOMBIE_POWDER, ZOMBIE_POWER, ZOMBIE_TRACE, CORE_OF_PURIFICATION, CORE_OF_CREATION, CORE_OF_DESTRUCTION,
     PURIFICATION_STAFF, CREATION_WAND, DESTRUCTION_AXE, ZOMBIE_BREAKER, D_SWORD, D_HELMET, D_CHESTPLATE, D_LEGGINGS, D_BOOTS, POWER_CRYSTAL,
     GOLDEN_APPLE, D_BOW, ZOMBIE_SAND, ZOMBIE_APPLE_D, ZOMBIE_WATERDROP, ZOMBIE_GOLD, ZOMBIE_APPLE, ZOMBIE_GOLDEN_APPLE, ZOMBIEGOD_FRUIT, INFINITELIFE_OF_ZOMBIE,
-    SIMPLE_TABLE, ZOMBIE_FLESH, ZOMBIE_STEAK, PREMIUM_ZOMBIE_STEAK, DEADS_MEAL;
+    SIMPLE_TABLE, ZOMBIE_FLESH, ZOMBIE_STEAK, PREMIUM_ZOMBIE_STEAK, DEADS_MEAL, ARROW;
     public static final List<String> EXCEPTIONS = new ArrayList<>();
     public static final List<NamespacedKey> customRecipeKeys = new ArrayList<>();
     public static final List<ItemStack> customItems = new ArrayList<>();
     public static final List<NamespacedKey> recipeKeys = new ArrayList<>();
+    public static final List<Location> spawnLoc = new ArrayList<>();
     private static final ConsoleCommandSender LOGGER = Bukkit.getConsoleSender();
     @Override
     public void onEnable() {
@@ -72,6 +78,10 @@ public final class Main extends JavaPlugin {
                 Objects.requireNonNull(getCommand(s)).setTabCompleter(new CMDHandler()); /* 탭컴플리터(커맨드 제안) 등록 */
             });
 
+            spawnLoc.add(new Location(Bukkit.getWorld("world"), 143.5, 64, 251.0));
+            spawnLoc.add(new Location(Bukkit.getWorld("world"), 191.5, 84, 174.0));
+            spawnLoc.add(new Location(Bukkit.getWorld("world"), 335.5, 74, 125.5));
+
             HashMap<Enchantment, Integer> sh5 = new HashMap<>();
             sh5.put(Enchantment.DAMAGE_ALL, 5);
             HashMap<Enchantment, Integer> sh10 = new HashMap<>();
@@ -90,6 +100,7 @@ public final class Main extends JavaPlugin {
             DESTRUCTION_AXE = customItem(Material.NETHERITE_AXE, 1, "§e★★★ §c파괴의 도끼", Arrays.asList("§7날카로움 V", "", "§a능력: §e폭발성 날", "§6적 타격§7 시 §5낮은 확률§7로 적의 위치에", "§a5§7의 §c피해§7를 주는 강력한 §e폭발§7을 생성시킨다."), true, List.of(sh5), true);
             ZOMBIE_BREAKER = customItem(Material.NETHERITE_SWORD,1, "§c⭐ §4좀비 브레이커", Arrays.asList("§6날카로움 X", "", "§5\"§d이 전쟁을 끝내러 왔다§5\"", "", "§a능력: §d생명의 빛", "§6적 타격§7 시 §5낮은 확률§7로 §e플레이어§7는 §a2§7의 체력을", "§d회복§7하고 §2좀비§7는 §a6§7의 §c피해§7를 입는 §e폭발§7이 일어난다."), true, List.of(sh10), true);
             D_BOW = customItem(Material.BOW, 1, "§e★☆☆ §f보급형 활", Arrays.asList("§7힘 III", "", "§7간단한 보급형 활 하나다.", "§7화살 수가 제한되어 있으니 신중히 사용하자."), true, List.of(pw3), true);
+            ARROW = customItem(Material.ARROW, 64, "§e★☆☆ §f보급형 화살", List.of("§7별다른 기능은 없다."), false, null, true);
 
             // 방어구류
             D_HELMET = customItem(Material.IRON_HELMET, 1, "§e★☆☆ §f보급형 헬멧", List.of("§7보호 III"), false, List.of(pr3), true);
@@ -98,7 +109,7 @@ public final class Main extends JavaPlugin {
             D_BOOTS = customItem(Material.IRON_BOOTS, 1, "§e★☆☆ §f보급형 부츠", List.of("§7보호 III"), false, List.of(pr3), true);
 
             // 소모품류
-            ZOMBIE_FLESH = customItem(Material.ROTTEN_FLESH, 1, "§e★☆☆ §c썩은 고기", Arrays.asList("§b썩은-고기-정화기§7에 사용하면.", "§7스테이크로 바꿀 수 있다 그냥은 먹지 말자. 제발.", "", "§7섭취 시:", "§8- §a배고픔 +1칸 회복", "§4- §c허기 III (00:05)", "", "§8모든 좀비에게서 §b90% §8확률로 1-5개 드랍"), false, null, true);
+            ZOMBIE_FLESH = customItem(Material.ROTTEN_FLESH, 1, "§e★☆☆ §c썩은 고기", Arrays.asList("§b썩은-고기-정화기§7에 사용하면,", "§7스테이크로 바꿀 수 있다 그냥은 먹지 말자. 제발.", "", "§7섭취 시:", "§8- §a배고픔 +1칸 회복", "§4- §c허기 III (00:05)", "", "§8모든 좀비에게서 §b90% §8확률로 1-5개 드랍"), false, null, true);
             ZOMBIE_STEAK = customItem(Material.COOKED_BEEF, 1, "§e★★☆ §a좀비 스테이크", Arrays.asList("§7완전 스테이크 같지만 원재료는 놀랍게도 좀비이다.", "§7그래도 몸에는 나쁘지 않으니 안심하고 먹자.", "", "§7섭취 시:", "§8- §a배고픔 +4칸 회복", "§8- §e포만감 +8 회복"), false, null, true);
             PREMIUM_ZOMBIE_STEAK = customItem(Material.COOKED_BEEF, 1, "§e★★★ §6단§e짠§6단§e짠 §a좀비 스테이크", Arrays.asList("§7좀비 토금과 스테이크가 만나 단짠단짠 조합을 만들어냈다.", "§7지금은 다 좀비가 된 소고기보다 맛있는 것 같다.", "", "§7섭취 시:", "§8- §a배고픔 +7칸 회복", "§8- §e포만감 +12 회복"), true, null, true);
             ZOMBIE_TRACE = customItem(Material.POTION,1, "§c좀비의 흔적", Arrays.asList("§7원샷이 가능한 수준으로 적게 들어있다.", "§5모든 좀비 아이템의 진화 베이스가 된다.", "", "§b우클릭 시 즉시 섭취됨", "§7섭취 시:", "§8- §5즉시 치유 II §c(❤ +4칸)", "§8모든 좀비에게서 §53%§8 확률로 드랍"), true, null, true);
@@ -115,12 +126,11 @@ public final class Main extends JavaPlugin {
             ZOMBIE_POWDER = customItem(Material.GUNPOWDER,1, "§f좀비 가루", Arrays.asList("§7적게나마 온기가 느껴진다.", "", "§8모든 좀비에게서 §225%§8 확률로 1-3개 드랍"), false, null, true);
             ZOMBIE_PIECE = customItem(Material.GREEN_DYE, 1, "§a좀비 조각", Arrays.asList("§7좀비 가루 9개를 모아 만든 조각이다.", "§7다른 물건과 조합할 수 있을 것 같다."), true, null, true);
             POWER_CRYSTAL = customItem(Material.NETHER_STAR, 1, "§b파워 결정체", Arrays.asList("§b정화기§7의 파워를 랜덤하게 충전해준다.", "", "§8모든 좀비에게서 §910%§8 확률로 드랍"), true, null, true);
-            GOLDEN_APPLE = customItem(Material.GOLDEN_APPLE, 16, "§b황금 사과", Arrays.asList("§7몸에 이로운 황금으로 이루어져있다.", "", "§7섭취 시:", "§8- §d재생 II §9(0:05) §c(❤ +2칸)", "§8- §e흡수 I §9(2:00) §c(§6❤ §e2칸§c)", "§8- §a포화 IV §e(§2허기 §a4 §e회복, §5포만감 §a8 §e회복)"), false, null, true);
             CORE_OF_PURIFICATION = customItem(Material.DIAMOND,1, "§d§l정화의 코어", Arrays.asList("§d정화의 좀비§7에게서 떨어진 코어다.", "§7유용한 아이템으로 만들 수 있을 것 같다.", "", "§d정화의 좀비§8에게서 확정적으로 드랍"), true, null, true);
             CORE_OF_CREATION = customItem(Material.FEATHER,1, "§b§l창조의 코어", Arrays.asList("§b창조의 좀비§7에게서 떨어진 코어다.", "§7유용한 아이템으로 만들 수 있을 것 같다.", "", "§b창조의 좀비§8에게서 확정적으로 드랍"), true, null, true);
             CORE_OF_DESTRUCTION = customItem(Material.END_CRYSTAL,1, "§c§l파괴의 코어", Arrays.asList("§c파괴의 좀비§7에게서 떨어진 코어다.", "§7유용한 아이템으로 만들 수 있을 것 같다.", "", "§c파괴의 좀비§8에게서 확정적으로 드랍"), true, null, true);
             ZOMBIE_WATERDROP = customItem(Material.LAPIS_LAZULI, 1, "§9좀비 물방울", Arrays.asList("§7드라운드에게 나온 순도 99% H₂O다.", "§7좀비에게 왜 이렇게 순도 높은 물이 있는진 모르겠지만,", "§e오염된 물체를 씻는데는 사용할 수 있을 것 같다.", "", "§8모든 드라운드에게서 §220%§8 확률로 드랍"), true, null, true);
-            SIMPLE_TABLE = customItem(Material.CRAFTING_TABLE, 1, "§a휴대용 작업대", Arrays.asList("§7미래 기술으로 작업대를 압축해,", "§7어디서든 큰 작업을 할 수 있는 작업대이다.", "", "§e▶ 우클릭해서 사용하기"), false, null, true);
+            SIMPLE_TABLE = customItem(Material.SHULKER_SHELL, 1, "§a휴대용 작업대", Arrays.asList("§7미래 기술으로 작업대를 압축해,", "§7어디서든 큰 작업을 할 수 있는 작업대이다.", "", "§e▶ 우클릭해서 사용하기"), false, null, true);
 
             ShapedRecipe r1 = new ShapedRecipe(new NamespacedKey(Main.getPlugin(Main.class), "purifiacation_staff"), PURIFICATION_STAFF);
             r1.shape("PCP", "PSP", "PPP");
@@ -219,18 +229,22 @@ public final class Main extends JavaPlugin {
             printException(e);
         }
     }
+    /**
+     * 메인 스코어보드를 설정함
+     */
     public static void mainBoardSet() {
         try {
-            Bukkit.getScheduler().scheduleSyncRepeatingTask(Main.getPlugin(Main.class), () -> {
+            repeat(() -> {
                 try {
                     Scoreboard board = Bukkit.getScoreboardManager().getNewScoreboard();
-                    Objective objective = board.registerNewObjective("beforeBoard", Criteria.DUMMY, Component.text("§4Zombie Survival"));
-                    objective.setDisplaySlot(DisplaySlot.SIDEBAR);
                     if (!Bukkit.getOnlinePlayers().isEmpty()) {
                         for (Player p : Bukkit.getOnlinePlayers()) {
+                            Objective objective = board.registerNewObjective(p.getName(), Criteria.DUMMY, Component.text("§4Zombie Survival"));
+                            objective.setDisplaySlot(DisplaySlot.SIDEBAR);
                             if (GameHandler.gameStarted) {
                                 int n = 10;
                                 if (GameHandler.subBeaconAlive) n++;
+                                if (GameHandler.subBeaconRevived) n++;
                                 if (GameHandler.currentMode == GameHandler.Gamemode.HOST) n++;
                                 Score hum = objective.getScore("§a🗡 생존자: §c" + GameHandler.humanCount);
                                 hum.setScore(n);
@@ -251,12 +265,11 @@ public final class Main extends JavaPlugin {
                                     Score h = objective.getScore("§4⚔ 숙주 등장: §c웨이브 " + GameHandler.finalWave);
                                     h.setScore(n);
                                     n--;
-                                }
-                                Score t;
+                                } Score t;
                                 if (WaveTimer.getWaveCountdownSec() < 10)
-                                    t = objective.getScore(String.format("§e⏳ 남은 웨이브 시간: §a%d:0%d", WaveTimer.getWaveCountdownMin(), WaveTimer.getWaveCountdownSec()));
+                                    t = objective.getScore(format("§e⏳ 남은 웨이브 시간: §a%d:0%d", WaveTimer.getWaveCountdownMin(), WaveTimer.getWaveCountdownSec()));
                                 else
-                                    t = objective.getScore(String.format("§e⏳ 웨이브 시간: §a%d:%d", WaveTimer.getWaveCountdownMin(), WaveTimer.getWaveCountdownSec()));
+                                    t = objective.getScore(format("§e⏳ 웨이브 시간: §a%d:%d", WaveTimer.getWaveCountdownMin(), WaveTimer.getWaveCountdownSec()));
                                 t.setScore(n);
                                 n--;
                                 Score b = objective.getScore("§b⚡ 정화기 파워§f: §b" + GameHandler.beaconPower);
@@ -270,11 +283,26 @@ public final class Main extends JavaPlugin {
                                 Score b1 = objective.getScore("  ");
                                 b1.setScore(n);
                                 n--;
-                                Score o;
-                                if (GameHandler.oxygenStarted)
-                                    o = objective.getScore("§b☢ §c산소§f: §e" + OxygenTimer.getOxygen().get(p));
-                                else o = objective.getScore("§b☢ §7산소§f: §f" + OxygenTimer.getOxygen().get(p));
-                                o.setScore(n);
+                                Score d;
+                                if (GameHandler.beaconDurability == 50) d = objective.getScore("§b정화기 내구도§f: §9" + GameHandler.beaconDurability + "§e/50");
+                                else if (GameHandler.beaconDurability >= 40) d = objective.getScore("§b정화기 내구도§f: §b" + GameHandler.beaconDurability + "§e/50");
+                                else if (GameHandler.beaconDurability >= 30) d = objective.getScore("§b정화기 내구도§f: §a" + GameHandler.beaconDurability + "§e/50");
+                                else if (GameHandler.beaconDurability >= 20) d = objective.getScore("§b정화기 내구도§f: §e" + GameHandler.beaconDurability + "§e/50");
+                                else if (GameHandler.beaconDurability >= 10) d = objective.getScore("§b정화기 내구도§f: §6" + GameHandler.beaconDurability + "§e/50");
+                                else if (GameHandler.beaconDurability > 0) d = objective.getScore("§b정화기 내구도§f: §c" + GameHandler.beaconDurability + "§e/50");
+                                else d = objective.getScore("§b정화기 내구도§f: §40§e/50 §4(파괴됨)");
+                                d.setScore(n);
+                                if (GameHandler.subBeaconRevived) {
+                                    Score d2;
+                                    if (GameHandler.beaconDurability == 50) d2 = objective.getScore("§9제2 §b정화기 내구도§f: §9" + GameHandler.beaconDurability + "§e/50");
+                                    else if (GameHandler.beaconDurability >= 40) d2 = objective.getScore("§9제2 §b정화기 내구도§f: §b" + GameHandler.beaconDurability + "§e/50");
+                                    else if (GameHandler.beaconDurability >= 30) d2 = objective.getScore("§9제2 §b정화기 내구도§f: §a" + GameHandler.beaconDurability + "§e/50");
+                                    else if (GameHandler.beaconDurability >= 20) d2 = objective.getScore("§9제2 §b정화기 내구도§f: §e" + GameHandler.beaconDurability + "§e/50");
+                                    else if (GameHandler.beaconDurability >= 10) d2 = objective.getScore("§9제2 §b정화기 내구도§f: §6" + GameHandler.beaconDurability + "§e/50");
+                                    else if (GameHandler.beaconDurability > 0) d2 = objective.getScore("§9제2 §b정화기 내구도§f: §c" + GameHandler.beaconDurability + "§e/50");
+                                    else d2 = objective.getScore("§9제2 b정화기 내구도§f: §40§e/50 §4(파괴됨)");
+                                    d2.setScore(n);
+                                }
                                 Team team = board.registerNewTeam(p.getName());
                                 if (GameHandler.playerType.get(p).equals(GameHandler.PlayerType.SURVIVE)) {
                                     team.color(NamedTextColor.AQUA);
@@ -286,34 +314,73 @@ public final class Main extends JavaPlugin {
                                 Score a = objective.getScore("§eping§f: " + p.getPing() + "ms");
                                 a.setScore(0);
                                 p.setScoreboard(board);
+                            } else {
+                                Score b = objective.getScore(" ");
+                                b.setScore(2);
+                                Score n = objective.getScore("§c진행 중이 아님");
+                                n.setScore(1);
+                                Score b1 = objective.getScore("  ");
+                                b1.setScore(0);
+                                p.setScoreboard(board);
                             }
                         }
                     }
                 } catch (Exception e) {
                     Main.printException(e);
                 }
-            }, 0, 20);
+            }, 20);
         } catch (Exception e) {
             Main.printException(e);
         }
     }
+
+    /**
+     * 1초(20틱) 단위로 반복하는 메인 작업 실행
+     */
     public static void startMainTask() {
         try {
-            Bukkit.getScheduler().scheduleSyncRepeatingTask(Main.getPlugin(Main.class), () -> {
+            repeat(() -> {
                 try {
                     Block gate = Objects.requireNonNull(Bukkit.getWorld("world")).getBlockAt(252, 72, 208);
                     EndGateway gateway = (EndGateway) gate.getState();
                     if (GameHandler.beaconAlive) gateway.setAge(100);
                     else gateway.setAge(gateway.getAge()+80);
                     gateway.update();
+                    for (Player p : Bukkit.getOnlinePlayers()) {
+                        p.sendPlayerListHeaderAndFooter(Component.text("§2좀비 서바이벌 §b플레이 중"), Component.text("§a---------------"));
+                        if (GameHandler.gameStarted) {
+                            if (GameHandler.playerType.get(p).equals(GameHandler.PlayerType.SURVIVE)) p.playerListName(Component.text("§9🗡 §b" + p.getName() + " §e" + Math.round(p.getHealth())));
+                            else if (GameHandler.playerType.get(p).equals(GameHandler.PlayerType.INFECTED)) p.playerListName(Component.text("§4☠ §2" + p.getName() + " §c" + Math.round(p.getHealth())));
+                            else if (GameHandler.playerType.get(p).equals(GameHandler.PlayerType.SPECTATOR)) p.playerListName(Component.text("§7" + p.getName()));
+                        } else p.playerListName(Component.text(p.getName()));
+                    } for (Entity e : Objects.requireNonNull(Bukkit.getWorld("world")).getEntities()) {
+                        if (ZombieParser.isZombie(e)) {
+                            switch (e.getType()) {
+                                case ZOMBIE -> {
+                                    if (((Zombie) e).getTarget() == null) ((Zombie) e).setTarget(PlayerParser.getNearestPlayer(e));
+                                } case HUSK -> {
+                                    if (((Husk) e).getTarget() == null) ((Husk) e).setTarget(PlayerParser.getNearestPlayer(e));
+                                } case DROWNED -> {
+                                    if (((Drowned) e).getTarget() == null) ((Drowned) e).setTarget(PlayerParser.getNearestPlayer(e));
+                                } case ZOMBIE_VILLAGER -> {
+                                    if (((ZombieVillager) e).getTarget() == null) ((ZombieVillager) e).setTarget(PlayerParser.getNearestPlayer(e));
+                                }
+                            }
+                        }
+                    }
                 } catch (Exception e) {
                     printException(e);
                 }
-            }, 0, 20L);
+            }, 20);
         } catch (Exception e) {
             printException(e);
         }
     }
+
+    /**
+     * 오류를 서버 내에 전송하고 기록함
+     * @param e 기록할 오류
+     */
     public static void printException(@NotNull Exception e) {
         try {
             e.printStackTrace();
@@ -356,5 +423,54 @@ public final class Main extends JavaPlugin {
             printException(e);
             return null;
         }
+    }
+
+    /**
+     * 특정 작업에 딜레이를 줌 (몇 틱 이후 실행)
+     * @param task 실행할 작업
+     * @param delay 딜레이, 단위: 틱 (0.05초)
+     * @throws IllegalArgumentException 딜레이가 1 미만일 때
+     */
+    public static void delay(@NotNull Runnable task, @NotNull Integer delay) {
+        if (delay < 1) throw new IllegalArgumentException("딜레이는 최소 1 이상이여야 합니다");
+        Bukkit.getScheduler().scheduleSyncDelayedTask(Main.getPlugin(Main.class), task, delay);
+    }
+
+    /**
+     * 특정 작업을 반복함 (플러그인 비활성화 또는 직접 취소 시까지)
+     * @param task 반복할 작업
+     * @param period 반복 주기, 단위: 틱 (0.05초)
+     * @return 작업 ID 반환, 작업 실패 시 -1 반환
+     * @throws IllegalArgumentException 반복 주기가 1 미만일 때
+     */
+    public static int repeat(Runnable task, @NotNull Integer period) {
+        if (period < 1) throw new IllegalArgumentException("반복 주기는 최소 1 이상이여야 합니다");
+        return Bukkit.getScheduler().scheduleSyncRepeatingTask(Main.getPlugin(Main.class), task, 0, period);
+    }
+
+    /**
+     * 플레이어에게 타이틀을 띄우는 메소드 - 초 단위형
+     * @param player 타이틀을 볼 플레이어
+     * @param title 메인 타이틀 (화면 중앙)
+     * @param subtitle 서브 타이틀 (메인 타이틀 아래)
+     * @param fadeIn 타이틀의 페이드 인 시간, 단위: 초 (밀리초 사용 시 double으로 사용)
+     * @param stay 타이틀이 유지될 시간, 단위: 초 (밀리초 사용 시 double으로 사용)
+     * @param fadeOut 타이틀의 페이드 아웃 시간, 단위: 초 (밀리초 사용 시 double으로 사용)
+     */
+    public static void title(@NotNull Player player, @NotNull String title, @NotNull String subtitle, int fadeIn, int stay, int fadeOut) {
+        player.clearTitle();
+        player.showTitle(Title.title(Component.text(title), Component.text(subtitle), Title.Times.times(Duration.ofSeconds(fadeIn), Duration.ofSeconds(stay), Duration.ofSeconds(fadeOut))));
+    }
+    /**
+     * 플레이어에게 타이틀을 띄우는 메소드 - 밀리초 단위형
+     * @param player 타이틀을 볼 플레이어
+     * @param title 메인 타이틀 (화면 중앙)
+     * @param subtitle 서브 타이틀 (메인 타이틀 아래)
+     * @param fadeIn 타이틀의 페이드 인 시간, 단위: 밀리초 (초 사용 시 int으로 사용)
+     * @param stay 타이틀이 유지될 시간, 단위: 밀리초 (초 사용 시 int으로 사용)
+     * @param fadeOut 타이틀의 페이드 아웃 시간, 단위: 밀리초 (초 사용 시 int으로 사용)
+     */
+    public static void title(@NotNull Player player, @NotNull String title, @NotNull String subtitle, double fadeIn, double stay, double fadeOut) {
+        player.showTitle(Title.title(Component.text(title), Component.text(subtitle), Title.Times.times(Duration.ofMillis(Math.round(fadeIn)), Duration.ofMillis(Math.round(stay)), Duration.ofMillis(Math.round(fadeOut)))));
     }
 }
