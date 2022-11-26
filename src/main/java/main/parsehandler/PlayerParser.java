@@ -34,6 +34,6 @@ public class PlayerParser {
      * @return 정화기로부터 5시간 내에 있으면 true 반환, 아니면 false 반환
      */
     public static boolean isNearPurifier(@NotNull Player player) {
-        return Math.abs(252 - player.getLocation().getX()) <= 5 && Math.abs(208 - player.getLocation().getZ()) <= 5;
+        return Math.abs(252 - player.getLocation().getX()) <= 10 && Math.abs(208 - player.getLocation().getZ()) <= 10;
     }
 }

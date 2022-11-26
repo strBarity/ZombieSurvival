@@ -16,3 +16,6 @@ commands:
     description: 호환되지 않는 버전 안내 명령어
   wave:
     description: 웨이브 설정 명령어
+  spectator:
+    description: 관전자 명령어
+    aliases: [ spec ]

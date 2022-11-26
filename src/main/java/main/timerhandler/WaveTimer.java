@@ -1,5 +1,6 @@
 package main.timerhandler;
 
+import main.Main;
 import main.gamehandler.GameHandler;
 
 public class WaveTimer implements Runnable {
@@ -7,8 +8,8 @@ public class WaveTimer implements Runnable {
     private static long waveCountdownMin = 5;
 
     public static void resetWaveCountdown() {
-        waveCountdownSec = 0;
-        waveCountdownMin = 5;
+        waveCountdownSec = 30;
+        waveCountdownMin = 1;
     }
 
     public static void firstWaveCountdown() {
@@ -27,16 +28,20 @@ public class WaveTimer implements Runnable {
 
     @Override
     public void run() {
-        if (GameHandler.gameStarted) {
-            waveCountdownSec--;
-            if (waveCountdownSec <= 0 && GameHandler.wave > 0) {
-                if (waveCountdownMin > 0) {
-                    waveCountdownSec = 59;
-                    waveCountdownMin--;
-                } else {
-                    GameHandler.nextWave();
+        try {
+            if (GameHandler.gameStarted) {
+                if (waveCountdownSec > 0) waveCountdownSec--;
+                if (waveCountdownSec <= 0 && GameHandler.wave > 0) {
+                    if (waveCountdownMin > 0) {
+                        waveCountdownSec = 59;
+                        waveCountdownMin--;
+                    } else if (GameHandler.wave < 100) {
+                        GameHandler.nextWave();
+                    }
                 }
             }
+        } catch (Exception e) {
+            Main.printException(e);
         }
     }
 }

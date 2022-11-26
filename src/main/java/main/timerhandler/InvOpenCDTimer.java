@@ -1,5 +1,6 @@
 package main.timerhandler;
 
+import main.Main;
 import org.bukkit.entity.Player;
 
 import java.util.HashMap;
@@ -14,13 +15,17 @@ public class InvOpenCDTimer implements Runnable {
 
     @Override
     public void run() {
-        if (!invOpenCooldoawn.isEmpty()) {
-            for (Map.Entry<Player, Integer> entry : invOpenCooldoawn.entrySet()) {
-                invOpenCooldoawn.put(entry.getKey(), entry.getValue() - 1);
-                if (entry.getValue() <= 0) {
-                    invOpenCooldoawn.remove(entry.getKey());
+        try {
+            if (!invOpenCooldoawn.isEmpty()) {
+                for (Map.Entry<Player, Integer> entry : invOpenCooldoawn.entrySet()) {
+                    invOpenCooldoawn.put(entry.getKey(), entry.getValue() - 1);
+                    if (entry.getValue() <= 0) {
+                        invOpenCooldoawn.remove(entry.getKey());
+                    }
                 }
             }
+        } catch (Exception e) {
+            Main.printException(e);
         }
     }
 }
