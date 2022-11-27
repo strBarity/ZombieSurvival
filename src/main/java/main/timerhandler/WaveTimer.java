@@ -8,7 +8,7 @@ public class WaveTimer implements Runnable {
     private static long waveCountdownMin = 5;
 
     public static void resetWaveCountdown() {
-        waveCountdownSec = 30;
+        waveCountdownSec = 0;
         waveCountdownMin = 1;
     }
 
@@ -30,15 +30,14 @@ public class WaveTimer implements Runnable {
     public void run() {
         try {
             if (GameHandler.gameStarted) {
-                if (waveCountdownSec > 0) waveCountdownSec--;
                 if (waveCountdownSec <= 0 && GameHandler.wave > 0) {
                     if (waveCountdownMin > 0) {
                         waveCountdownSec = 59;
                         waveCountdownMin--;
-                    } else if (GameHandler.wave < 100) {
+                    } else if (GameHandler.wave < 100 && GameHandler.humanCount > 0) {
                         GameHandler.nextWave();
                     }
-                }
+                } if (waveCountdownSec > 0) waveCountdownSec--;
             }
         } catch (Exception e) {
             Main.printException(e);

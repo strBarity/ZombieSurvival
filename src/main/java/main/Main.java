@@ -6,10 +6,12 @@ import com.comphenix.protocol.ProtocolManager;
 import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketEvent;
 import main.cmdhandler.CMDHandler;
+import main.eventhandler.CraftListener;
 import main.eventhandler.EventListener;
 import main.gamehandler.GameHandler;
 import main.parsehandler.PlayerParser;
 import main.parsehandler.ZombieParser;
+import main.timerhandler.InteractCDTimer;
 import main.timerhandler.InvOpenCDTimer;
 import main.timerhandler.OxygenTimer;
 import main.timerhandler.WaveTimer;
@@ -33,11 +35,13 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scoreboard.*;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import java.time.Duration;
 import java.util.*;
+import java.util.logging.Logger;
 
 import static java.lang.String.format;
 
@@ -52,22 +56,26 @@ public final class Main extends JavaPlugin {
     public static ItemStack ZOMBIE_PIECE, ZOMBIE_POWDER, ZOMBIE_POWER, ZOMBIE_TRACE, CORE_OF_PURIFICATION, CORE_OF_CREATION, CORE_OF_DESTRUCTION,
     PURIFICATION_STAFF, CREATION_WAND, DESTRUCTION_AXE, ZOMBIE_BREAKER, D_SWORD, D_HELMET, D_CHESTPLATE, D_LEGGINGS, D_BOOTS, POWER_CRYSTAL,
     GOLDEN_APPLE, D_BOW, ZOMBIE_SAND, ZOMBIE_APPLE_D, ZOMBIE_WATERDROP, ZOMBIE_GOLD, ZOMBIE_APPLE, ZOMBIE_GOLDEN_APPLE, ZOMBIEGOD_FRUIT, INFINITELIFE_OF_ZOMBIE,
-    SIMPLE_TABLE, ZOMBIE_FLESH, ZOMBIE_STEAK, PREMIUM_ZOMBIE_STEAK, ZOMBIE_CHICKEN, DEADS_MEAL, ARROW, COMPRESSED_LIFE;
+    SIMPLE_TABLE, ZOMBIE_FLESH, ZOMBIE_STEAK, PREMIUM_ZOMBIE_STEAK, ZOMBIE_CHICKEN, DEADS_MEAL, ARROW, COMPRESSED_LIFE, VACCINE, TRASH_BIN, REPAIRER;
     public static final List<String> EXCEPTIONS = new ArrayList<>();
     public static final List<NamespacedKey> customRecipeKeys = new ArrayList<>();
     public static final List<ItemStack> customItems = new ArrayList<>();
     public static final List<NamespacedKey> recipeKeys = new ArrayList<>();
     public static final List<Location> spawnLoc = new ArrayList<>();
-    private static final ConsoleCommandSender LOGGER = Bukkit.getConsoleSender();
+    private static final ConsoleCommandSender CONSOLE = Bukkit.getConsoleSender();
+    private static final Logger LOGGER = Bukkit.getLogger();
     @Override
     public void onEnable() {
         try {
             mainBoardSet();
             startMainTask();
-            LOGGER.sendMessage("§4[§2ZombieSurvival§4] §a플러그인이 활성화되었습니다.");
+            CONSOLE.sendMessage("§4[§2ZombieSurvival§4] §a플러그인이 활성화되었습니다.");
+            LOGGER.warning("[ZombieSurvival] 현재 개발 중인 플러그인을 사용하고 있습니다! 서버에 발생하는 오류에 대해서는 책임지지 않습니다.");
 
             Bukkit.getPluginManager().registerEvents(new EventListener(), this);
+            Bukkit.getPluginManager().registerEvents(new CraftListener(), this);
 
+            Bukkit.getScheduler().scheduleSyncRepeatingTask(this, new InteractCDTimer(), 0, 1);
             Bukkit.getScheduler().scheduleSyncRepeatingTask(this, new InvOpenCDTimer(), 0, 1);
             Bukkit.getScheduler().scheduleSyncRepeatingTask(this, new OxygenTimer(), 0, 20);
             Bukkit.getScheduler().scheduleSyncRepeatingTask(this, new WaveTimer(), 0, 20);
@@ -100,6 +108,7 @@ public final class Main extends JavaPlugin {
             ZOMBIE_BREAKER = customItem(Material.NETHERITE_SWORD,1, "§c⭐ §4좀비 브레이커", Arrays.asList("§6날카로움 VI", "", "§5§o\"§d§o이 전쟁을 끝내러 왔다§5§o\"", "", "§a능력: §d생명의 빛", "§6적 타격§7 시 §5낮은 확률§7로 §e플레이어§7는 §a1§7의 체력을", "§d회복§7하고 §2좀비§7는 §a6§7의 §c피해§7를 입는 §e폭발§7이 일어난다."), true, List.of(sh6), true);
             D_BOW = customItem(Material.BOW, 1, "§e★☆☆ §f보급형 활", Arrays.asList("§7힘 III", "", "§7간단한 보급형 활 하나다.", "§7화살 수가 제한되어 있으니 신중히 사용하자."), true, List.of(pw3), true);
             ARROW = customItem(Material.ARROW, 64, "§e★☆☆ §f보급형 화살", List.of("§7별다른 기능은 없다."), false, null, true);
+            VACCINE = customItem(Material.IRON_HOE, 1, "§a좀비 백신", Arrays.asList("§7미래 기술로 만들어진 백신이다.", "§7감염자를 때려 치료시킬 수 있다.", "§e5번 치료 시 파괴됨"), true, null, true);
 
             // 방어구류
             D_HELMET = customItem(Material.IRON_HELMET, 1, "§e★☆☆ §f보급형 헬멧", List.of("§7보호 III"), false, List.of(pr3), true);
@@ -121,9 +130,9 @@ public final class Main extends JavaPlugin {
             DEADS_MEAL = customItem(Material.COOKED_PORKCHOP, 1, "§c⭐ §4죽은 자들의 식사", Arrays.asList("§5§o\"§d§o기능보다는 맛을 크게 중시§5§o\"", "", "§7섭취 시:", "§8- §e배고픔과 포만감 모두 최대치로 회복", "§8- §d§l배고픔과 포만감이 영구적으로 줄어들지 않음"), true, null, true);
 
             // 기타
-            ZOMBIE_SAND = customItem(Material.GLOWSTONE_DUST, 1, "§e★☆☆ §6좀비 모래", Arrays.asList("§d\"모든 모래에는 약간의 금이 포함되어 있다\"", "§7이 모래는 더더욱 그런 것 같다.", "§e많이 모으면 금으로 만들 수 있을지도...?", "", "§8모든 허스크에게서 §225%§8 확률로 1-25개 드랍"), true, null, true);
-            ZOMBIE_APPLE_D = customItem(Material.APPLE, 1, "§e★☆☆ §2오염된 좀비 사과", Arrays.asList("§7이걸 떨어뜨린 좀비는 생전 사과를 좋아했던 것 같다.", "§7너무 오염되있어서 섭취할 순 없다.", "§e물 같은걸로 적당히 씻으면 섭취할 수 있을듯 하다.", "", "§8모든 미변형 좀비에게서 §550%§8 확률로 드랍"), false, null, true);
-            ZOMBIE_POWDER = customItem(Material.GUNPOWDER,1, "§f좀비 가루", Arrays.asList("§7적게나마 온기가 느껴진다.", "", "§8모든 좀비에게서 §230%§8 확률로 1개 드랍"), false, null, true);
+            ZOMBIE_SAND = customItem(Material.GLOWSTONE_DUST, 1, "§e★☆☆ §6좀비 모래", Arrays.asList("§d\"모든 모래에는 약간의 금이 포함되어 있다\"", "§7이 모래는 더더욱 그런 것 같다.", "§e많이 모으면 금으로 만들 수 있을지도...?", "", "§8모든 허스크에게서 §225%§8 확률로 1-10개 드랍"), true, null, true);
+            ZOMBIE_APPLE_D = customItem(Material.APPLE, 1, "§e★☆☆ §2오염된 좀비 사과", Arrays.asList("§7이걸 떨어뜨린 좀비는 생전 사과를 좋아했던 것 같다.", "§7너무 오염되있어서 섭취할 순 없다.", "§e물 같은걸로 적당히 씻으면 섭취할 수 있을듯 하다.", "", "§8모든 미변형 좀비에게서 §55%§8 확률로 드랍"), false, null, true);
+            ZOMBIE_POWDER = customItem(Material.GUNPOWDER,1, "§f좀비 가루", Arrays.asList("§7적게나마 온기가 느껴진다.", "", "§8모든 좀비에게서 §230%§8 확률로 1-3개 드랍"), false, null, true);
             ZOMBIE_CHICKEN = customItem(Material.COOKED_CHICKEN, 1, "§4좀비 치킨 바베큐", Arrays.asList("§7좀비가 타고있던 닭의 고기이다.", "§7어째서인지 죽자마자 구워졌다.", "§5어떤 음식을 미친듯이 맛있게 만들 수 있을 것 같다.", "", "§8모든 §4치킨 조키§8의 닭에게서 확정적으로 드랍"), true, null, true);
             COMPRESSED_LIFE = customItem(Material.COPPER_INGOT, 1, "§4압축된 좀비의 라이프", Arrays.asList("§7좀비의 인생이 하나의 물질로 압축되었다.", "§5잘 사용하면 영생을 할 수 있을 것 같다."), true, null, true);
             ZOMBIE_PIECE = customItem(Material.GREEN_DYE, 1, "§a좀비 조각", Arrays.asList("§7좀비 가루 9개를 모아 만든 조각이다.", "§7다른 물건과 조합할 수 있을 것 같다."), true, null, true);
@@ -133,60 +142,70 @@ public final class Main extends JavaPlugin {
             CORE_OF_DESTRUCTION = customItem(Material.END_CRYSTAL,1, "§c§l파괴의 코어", Arrays.asList("§c파괴의 좀비§7에게서 떨어진 코어다.", "§7유용한 아이템으로 만들 수 있을 것 같다.", "", "§c파괴의 좀비§8에게서 확정적으로 드랍"), true, null, true);
             ZOMBIE_WATERDROP = customItem(Material.LAPIS_LAZULI, 1, "§9좀비 물방울", Arrays.asList("§7드라운드에게 나온 순도 99% H₂O다.", "§7좀비에게 왜 이렇게 순도 높은 물이 있는진 모르겠지만,", "§e오염된 물체를 씻는데는 사용할 수 있을 것 같다.", "", "§8모든 드라운드에게서 §220%§8 확률로 1-9개 드랍"), true, null, true);
             SIMPLE_TABLE = customItem(Material.SHULKER_SHELL, 1, "§a휴대용 작업대", Arrays.asList("§7미래 기술으로 작업대를 압축해,", "§7어디서든 큰 작업을 할 수 있는 작업대이다.", "", "§e▶ 우클릭해서 사용하기"), false, null, true);
+            TRASH_BIN = customItem(Material.CAULDRON, 1, "§e쓰레기통", Arrays.asList("§7아이템을 버릴 수 있는 쓰레기통이다.", "§e이 안에 넣은 아이템은 영원히 없어지니 주의하자.", "", "§e▶ 클릭해서 열기"), true, null, true);
+            REPAIRER = customItem(Material.IRON_INGOT, 1, "§b정화기 수리기", Arrays.asList("§7정화기의 내구도를 §a5 §7수리할 수 있는 아이템이다.", "§b50§7의 §b정화기 파워§7가 있어야 수리 가능하다."), true, null, true);
 
-            ShapedRecipe r1 = new ShapedRecipe(new NamespacedKey(Main.getPlugin(Main.class), "purifiacation_staff"), PURIFICATION_STAFF);
+            ShapedRecipe r1 = new ShapedRecipe(new NamespacedKey(this, "purifiacation_staff"), PURIFICATION_STAFF);
             r1.shape("PCP", "PSP", "PPP");
             r1.setIngredient('P', ZOMBIE_POWDER).setIngredient('C', CORE_OF_PURIFICATION).setIngredient('S', ZOMBIE_POWER);
             Bukkit.addRecipe(r1);
             customRecipeKeys.add(r1.getKey());
-            ShapedRecipe r2 = new ShapedRecipe(new NamespacedKey(Main.getPlugin(Main.class), "creation_wand"), CREATION_WAND);
+            ShapedRecipe r2 = new ShapedRecipe(new NamespacedKey(this, "creation_wand"), CREATION_WAND);
             r2.shape("PCP", "PSP", "PPP").setIngredient('P', ZOMBIE_POWDER).setIngredient('C', CORE_OF_CREATION).setIngredient('S', ZOMBIE_POWER);
             Bukkit.addRecipe(r2);
             customRecipeKeys.add(r2.getKey());
-            ShapedRecipe r3 = new ShapedRecipe(new NamespacedKey(Main.getPlugin(Main.class), "destruction_axe"), DESTRUCTION_AXE);
+            ShapedRecipe r3 = new ShapedRecipe(new NamespacedKey(this, "destruction_axe"), DESTRUCTION_AXE);
             r3.shape("PCP", "PSP", "PPP").setIngredient('P', ZOMBIE_POWDER).setIngredient('C', CORE_OF_DESTRUCTION).setIngredient('S', ZOMBIE_POWER);
             Bukkit.addRecipe(r3);
             customRecipeKeys.add(r3.getKey());
-            ShapedRecipe r4 = new ShapedRecipe(new NamespacedKey(Main.getPlugin(Main.class), "zombie_breaker"), ZOMBIE_BREAKER);
+            ShapedRecipe r4 = new ShapedRecipe(new NamespacedKey(this, "zombie_breaker"), ZOMBIE_BREAKER);
             r4.shape("PBP", "CSU", "PTP").setIngredient('P', ZOMBIE_PIECE).setIngredient('B', DESTRUCTION_AXE).setIngredient('C', CREATION_WAND).setIngredient('U', PURIFICATION_STAFF).setIngredient('T', ZOMBIE_TRACE).setIngredient('S', ZOMBIE_POWER);
             Bukkit.addRecipe(r4);
             customRecipeKeys.add(r4.getKey());
-            ShapedRecipe r5 = new ShapedRecipe(new NamespacedKey(Main.getPlugin(Main.class), "zombie_piece"), ZOMBIE_PIECE);
+            ShapedRecipe r5 = new ShapedRecipe(new NamespacedKey(this, "zombie_piece"), ZOMBIE_PIECE);
             r5.shape("PPP", "PPP", "PPP").setIngredient('P', ZOMBIE_POWDER);
             Bukkit.addRecipe(r5);
             customRecipeKeys.add(r5.getKey());
-            ShapedRecipe r6 = new ShapedRecipe(new NamespacedKey(Main.getPlugin(Main.class), "compressed_life"), COMPRESSED_LIFE);
+            ShapedRecipe r6 = new ShapedRecipe(new NamespacedKey(this, "compressed_life"), COMPRESSED_LIFE);
             r6.shape("PPP", "PPP", "PPP").setIngredient('P', ZOMBIE_POWER);
             Bukkit.addRecipe(r6);
             customRecipeKeys.add(r6.getKey());
-            ShapedRecipe r7 = new ShapedRecipe(new NamespacedKey(Main.getPlugin(Main.class), "zombie_gold"), ZOMBIE_GOLD);
+            ShapedRecipe r7 = new ShapedRecipe(new NamespacedKey(this, "zombie_gold"), ZOMBIE_GOLD);
             r7.shape("PPP", "PPP", "PPP").setIngredient('P', ZOMBIE_SAND);
             Bukkit.addRecipe(r7);
             customRecipeKeys.add(r7.getKey());
-            ShapedRecipe r8 = new ShapedRecipe(new NamespacedKey(Main.getPlugin(Main.class), "zombie_apple"), ZOMBIE_APPLE);
+            ShapedRecipe r8 = new ShapedRecipe(new NamespacedKey(this, "zombie_apple"), ZOMBIE_APPLE);
             r8.shape("PPP", "PAP", "PPP").setIngredient('P', ZOMBIE_WATERDROP).setIngredient('A', ZOMBIE_APPLE_D);
             Bukkit.addRecipe(r8);
             customRecipeKeys.add(r8.getKey());
-            ShapedRecipe r9 = new ShapedRecipe(new NamespacedKey(Main.getPlugin(Main.class), "zombie_golden_apple"), ZOMBIE_GOLDEN_APPLE);
+            ShapedRecipe r9 = new ShapedRecipe(new NamespacedKey(this, "zombie_golden_apple"), ZOMBIE_GOLDEN_APPLE);
             r9.shape("PPP", "PAP", "PPP").setIngredient('P', ZOMBIE_GOLD).setIngredient('A', ZOMBIE_APPLE);
             Bukkit.addRecipe(r9);
             customRecipeKeys.add(r9.getKey());
-            ShapedRecipe s2 = new ShapedRecipe(new NamespacedKey(Main.getPlugin(Main.class), "zombiegod_fruit"), ZOMBIEGOD_FRUIT);
-            s2.shape("PAP", "APA", "PAP").setIngredient('P', ZOMBIE_PIECE).setIngredient('A', ZOMBIE_GOLDEN_APPLE);
+            ShapedRecipe s2 = new ShapedRecipe(new NamespacedKey(this, "zombiegod_fruit"), ZOMBIEGOD_FRUIT);
+            s2.shape("PAP", "APA", "PAP").setIngredient('P', PREMIUM_ZOMBIE_STEAK).setIngredient('A', ZOMBIE_GOLDEN_APPLE);
             Bukkit.addRecipe(s2);
             customRecipeKeys.add(s2.getKey());
-            ShapedRecipe s = new ShapedRecipe(new NamespacedKey(Main.getPlugin(Main.class), "infinitelife_of_zombie"), INFINITELIFE_OF_ZOMBIE);
+            ShapedRecipe s = new ShapedRecipe(new NamespacedKey(this, "infinitelife_of_zombie"), INFINITELIFE_OF_ZOMBIE);
             s.shape("PTP", "PAP", "PCP").setIngredient('P', ZOMBIE_PIECE).setIngredient('A', ZOMBIE_GOLDEN_APPLE).setIngredient('T', ZOMBIE_TRACE).setIngredient('C', COMPRESSED_LIFE);
             Bukkit.addRecipe(s);
             customRecipeKeys.add(s.getKey());
-            ShapedRecipe s1 = new ShapedRecipe(new NamespacedKey(Main.getPlugin(Main.class), "deads_meal"), DEADS_MEAL);
-            s1.shape("PPP", "TAT", "PCP").setIngredient('P', ZOMBIE_PIECE).setIngredient('A', ZOMBIE_GOLDEN_APPLE).setIngredient('T', ZOMBIE_TRACE).setIngredient('C', ZOMBIE_CHICKEN);
+            ShapedRecipe s1 = new ShapedRecipe(new NamespacedKey(this, "deads_meal"), DEADS_MEAL);
+            s1.shape("SSS", "TAT", "PCP").setIngredient('S', PREMIUM_ZOMBIE_STEAK).setIngredient('P', ZOMBIE_PIECE).setIngredient('A', ZOMBIE_GOLDEN_APPLE).setIngredient('T', ZOMBIE_TRACE).setIngredient('C', ZOMBIE_CHICKEN);
             Bukkit.addRecipe(s1);
             customRecipeKeys.add(s1.getKey());
-            ShapedRecipe s3 = new ShapedRecipe(new NamespacedKey(Main.getPlugin(Main.class), "premium_zombie_steak"), PREMIUM_ZOMBIE_STEAK);
+            ShapedRecipe s3 = new ShapedRecipe(new NamespacedKey(this, "premium_zombie_steak"), PREMIUM_ZOMBIE_STEAK);
             s3.shape("PPP", "PSP", "PPP").setIngredient('P', ZOMBIE_GOLD).setIngredient('S', ZOMBIE_STEAK);
             Bukkit.addRecipe(s3);
             customRecipeKeys.add(s3.getKey());
+            ShapedRecipe s4 = new ShapedRecipe(new NamespacedKey(this, "vaccine"), VACCINE);
+            s4.shape("PCP", "PSP", "PCP").setIngredient('P', ZOMBIE_PIECE).setIngredient('S', POWER_CRYSTAL).setIngredient('C', CORE_OF_PURIFICATION);
+            Bukkit.addRecipe(s4);
+            customRecipeKeys.add(s4.getKey());
+            ShapedRecipe s5 = new ShapedRecipe(new NamespacedKey(this, "repairer"), REPAIRER);
+            s5.shape("PPP", "PSP", "PPP").setIngredient('P', ZOMBIE_PIECE).setIngredient('S', POWER_CRYSTAL);
+            Bukkit.addRecipe(s5);
+            customRecipeKeys.add(s5.getKey());
 
             Bukkit.recipeIterator().forEachRemaining(recipe -> {
                 if (recipe instanceof ShapelessRecipe shapelessRecipe) {
@@ -246,7 +265,7 @@ public final class Main extends JavaPlugin {
     @Override
     public void onDisable() {
         try {
-            LOGGER.sendMessage("§4[§2ZombieSurvival§4] §c플러그인이 비활성화되었습니다.");
+            CONSOLE.sendMessage("§4[§2ZombieSurvival§4] §c플러그인이 비활성화되었습니다.");
 
             for (NamespacedKey key : customRecipeKeys) Bukkit.removeRecipe(key);
 
@@ -385,7 +404,7 @@ public final class Main extends JavaPlugin {
                     for (Player p : Bukkit.getOnlinePlayers()) {
                         p.sendPlayerListHeaderAndFooter(Component.text("§2좀비 서바이벌 §b플레이 중"), Component.text("§a---------------"));
                         if (GameHandler.gameStarted) {
-                            if (EventListener.getInfiniteFull().get(p)) {
+                            if (!p.getGameMode().equals(GameMode.SPECTATOR) && EventListener.getInfiniteFull().get(p)) {
                                 p.setFoodLevel(20);
                                 p.setSaturation(20);
                             } if (p.getGameMode().equals(GameMode.SPECTATOR)) p.playerListName(Component.text("§7" + p.getName()));
@@ -407,7 +426,8 @@ public final class Main extends JavaPlugin {
                                 } case ZOMBIE_VILLAGER -> {
                                     if (((ZombieVillager) e).getTarget() == null) ((ZombieVillager) e).setTarget(PlayerParser.getNearestPlayer(e));
                                 }
-                            }
+                            } Component name = e.customName();
+                            if (name != null && name.contains(Component.text("창조"))) ZombieParser.spawnRandom(ZombieParser.ZombieType.ZOMBIE);
                         }
                     }
                 } catch (Exception e) {
@@ -444,7 +464,7 @@ public final class Main extends JavaPlugin {
         }
     }
 
-    public static ItemStack customItem(@NotNull Material item, @NotNull Integer amount, @NotNull String name, @Nullable List<String> lore, @NotNull Boolean shiny, @Nullable List<HashMap<Enchantment, Integer>> enchantments, @NotNull Boolean save) {
+    public static @NotNull ItemStack customItem(@NotNull Material item, @NotNull Integer amount, @NotNull String name, @Nullable List<String> lore, @NotNull Boolean shiny, @Nullable List<HashMap<Enchantment, Integer>> enchantments, @NotNull Boolean save) {
         try {
             ItemStack i = new ItemStack(item, amount);
             ItemMeta m = i.getItemMeta();
@@ -463,7 +483,7 @@ public final class Main extends JavaPlugin {
             return i;
         } catch (Exception e) {
             printException(e);
-            return null;
+            return new ItemStack(Material.AIR);
         }
     }
 
@@ -515,10 +535,12 @@ public final class Main extends JavaPlugin {
     public static void title(@NotNull Player player, @NotNull String title, @NotNull String subtitle, double fadeIn, double stay, double fadeOut) {
         player.showTitle(Title.title(Component.text(title), Component.text(subtitle), Title.Times.times(Duration.ofMillis(Math.round(fadeIn)), Duration.ofMillis(Math.round(stay)), Duration.ofMillis(Math.round(fadeOut)))));
     }
-    public static PotionEffect pot(PotionEffectType type, int durationSeconds, int amplifier) {
+    @Contract(value = "_, _, _ -> new", pure = true)
+    public static @NotNull PotionEffect pot(PotionEffectType type, int durationSeconds, int amplifier) {
         return new PotionEffect(type, durationSeconds * 20, amplifier, false, false);
     }
-    public static PotionEffect pot(PotionEffectType type, double durationTick, int amplifier) {
+    @Contract("_, _, _ -> new")
+    public static @NotNull PotionEffect pot(PotionEffectType type, double durationTick, int amplifier) {
         return new PotionEffect(type, (int) Math.round(durationTick), amplifier, false, false);
     }
 }

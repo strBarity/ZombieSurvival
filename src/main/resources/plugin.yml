@@ -19,3 +19,5 @@ commands:
   spectator:
     description: 관전자 명령어
     aliases: [ spec ]
+  craft:
+    description: 제작 명령어

@@ -36,9 +36,13 @@ public class CMDHandler implements TabExecutor {
                     VersionWarnHandler.onCommand(sender, args);
                     return true;
                 } case "spectate", "spec", "zombiesurvival:spectate", "zombiesurvival:spec" -> {
-                    SpectateHandler.onCommand(sender, args);
+                    SpectateHandler.onCommand(sender);
                     return true;
-                } default -> {
+                } case "craft", "zombiesurvival:craft" -> {
+                    CraftHandler.onCommand(sender, args);
+                    return true;
+                }
+                default -> {
                     return false;
                 }
             }

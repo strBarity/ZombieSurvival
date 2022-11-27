@@ -7,7 +7,7 @@ import java.util.HashMap;
 
 public class SpectateHandler {
     public static final HashMap<Player, Boolean> spectate = new HashMap<>();
-    public static void onCommand(CommandSender commandSender, String[] args) {
+    public static void onCommand(CommandSender commandSender) {
         Player p = (Player) commandSender;
         if (spectate.get(p) == null || !spectate.get(p)) {
             spectate.put(p, true);

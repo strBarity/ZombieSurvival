@@ -34,7 +34,7 @@ public class OxygenTimer implements Runnable {
                             if (entry.getValue() <= 0) {
                                 oxygen.put(p, 0.0);
                                 Main.title(p, "§4⚠ §c§l산소 부족!", "§6정화기 근처에서 산소를 회복하세요.", 250.0, 500.0, 250.0);
-                                if (Math.random() <= 0.5) p.damage(5);
+                                p.damage(10);
                             } else oxygen.put(p, entry.getValue() - GameHandler.oxygenDecreaseForce);
                             if (entry.getValue() == 50) {
                                 Main.title(p, "§f⚠ §e산소 50 남음!", "§6정화기 근처에서 산소를 회복하세요.", 1, 3, 1);

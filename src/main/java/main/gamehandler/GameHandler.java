@@ -20,8 +20,14 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 
 public class GameHandler {
     public enum Gamemode { NORMAL, HOST, HARD, IMPOSSIBLE }
@@ -104,16 +110,7 @@ public class GameHandler {
                         p.closeInventory();
                         p.setNoDamageTicks(20);
                         p.setMaximumNoDamageTicks(20);
-                        PlayerInventory inv = p.getInventory();
-                        inv.setItem(0, Main.D_SWORD);
-                        inv.setItem(1, Main.D_BOW);
-                        inv.setItem(2, Main.GOLDEN_APPLE);
-                        inv.setItem(8, Main.SIMPLE_TABLE);
-                        inv.setItem(27, Main.ARROW);
-                        inv.setItem(39, Main.D_HELMET);
-                        inv.setItem(38, Main.D_CHESTPLATE);
-                        inv.setItem(37, Main.D_LEGGINGS);
-                        inv.setItem(36, Main.D_BOOTS);
+                        setupItems(p.getInventory());
                         p.teleport(new Location(world, 241.5 - 1 + (Math.random() * 2), 70, 209.5 - 1 + (Math.random() * 2)));
                     } else {
                         playerType.put(p, PlayerType.SPECTATOR);
@@ -130,19 +127,32 @@ public class GameHandler {
             Main.printException(e);
         }
     }
-    public static ItemStack leatherColor(ItemStack leatherarmor, Color color) {
+    @Contract("_, _ -> param1")
+    public static @NotNull ItemStack leatherColor(@NotNull ItemStack leatherarmor, Color color) {
         LeatherArmorMeta l = (LeatherArmorMeta) leatherarmor.getItemMeta();
         l.setColor(color);
         l.addEnchant(Enchantment.PROTECTION_ENVIRONMENTAL, 5, true);
         leatherarmor.setItemMeta(l);
         return leatherarmor;
     }
-    public static void setLeathers(LivingEntity z, Color c) {
+    public static void setLeathers(@NotNull LivingEntity z, Color c) {
         if (z.getEquipment() == null) return;
         z.getEquipment().setHelmet(leatherColor(new ItemStack(Material.LEATHER_HELMET), c));
         z.getEquipment().setChestplate(leatherColor(new ItemStack(Material.LEATHER_CHESTPLATE), c));
         z.getEquipment().setLeggings(leatherColor(new ItemStack(Material.LEATHER_LEGGINGS),c));
         z.getEquipment().setBoots(leatherColor(new ItemStack(Material.LEATHER_BOOTS), c));
+    }
+    public static void setupItems(@NotNull PlayerInventory inv) {
+        inv.setItem(0, Main.D_SWORD);
+        inv.setItem(1, Main.D_BOW);
+        inv.setItem(2, Main.GOLDEN_APPLE);
+        inv.setItem(7, Main.TRASH_BIN);
+        inv.setItem(8, Main.SIMPLE_TABLE);
+        inv.setItem(27, Main.ARROW);
+        inv.setItem(39, Main.D_HELMET);
+        inv.setItem(38, Main.D_CHESTPLATE);
+        inv.setItem(37, Main.D_LEGGINGS);
+        inv.setItem(36, Main.D_BOOTS);
     }
 
     /**
@@ -156,7 +166,7 @@ public class GameHandler {
             zombieCount = 0;
             WaveTimer.resetWaveCountdown();
             wave++;
-            zombieToSpawn = (int) Math.round(wave + (Math.random() * 10 + wave)) + 10;
+            zombieToSpawn = (int) Math.round(wave + (Math.random() * 10 + wave)) + 10 + remainingZombies;
             remainingZombies = zombieToSpawn;
             if (wave % 3 == 0) {
                 double random = Math.random();
@@ -167,7 +177,8 @@ public class GameHandler {
                         z.customName(Component.text("§c파괴의 좀비"));
                         z.getEquipment().setItemInMainHand(Main.ZOMBIE_POWER);
                         z.setGlowing(true);
-                        Bukkit.broadcast(Component.text("§c파괴의 좀비§4가 어딘가에 스폰되었습니다."));
+                        z.addPotionEffect(Main.pot(PotionEffectType.SPEED, 1000000, 3));
+                        Bukkit.broadcast(Component.text("§c파괴의 좀비§4가 어딘가에 스폰되었습니다.\n§c파괴의 좀비는 아주 강력한 공격을 합니다."));
                     }
                 } else if (random <= (2.0 / 3)) {
                     if (z != null) {
@@ -175,7 +186,8 @@ public class GameHandler {
                         z.customName(Component.text("§b정화의 좀비"));
                         z.getEquipment().setItemInMainHand(Main.ZOMBIE_POWER);
                         z.setGlowing(true);
-                        Bukkit.broadcast(Component.text("§b정화의 좀비§4가 어딘가에 스폰되었습니다."));
+                        z.addPotionEffect(Main.pot(PotionEffectType.SPEED, 1000000, 3));
+                        Bukkit.broadcast(Component.text("§b정화의 좀비§4가 어딘가에 스폰되었습니다.\n§c정화의 좀비는 디버프를 부여하는 공격을 합니다."));
                     }
                 } else {
                     if (z != null) {
@@ -183,26 +195,56 @@ public class GameHandler {
                         z.customName(Component.text("§d창조의 좀비"));
                         z.getEquipment().setItemInMainHand(Main.ZOMBIE_POWER);
                         z.setGlowing(true);
-                        Bukkit.broadcast(Component.text("§d창조의 좀비§4가 어딘가에 스폰되었습니다."));
+                        z.addPotionEffect(Main.pot(PotionEffectType.SPEED, 1000000, 3));
+                        Bukkit.broadcast(Component.text("§d창조의 좀비§4가 어딘가에 스폰되었습니다.\n§c창조의 좀비가 살아있는 동안은, 웨이브에 상관없이\n1초마다 한마리의 좀비가 지속적으로 스폰됩니다."));
                     }
                 }
             }
             switch (wave) {
+                case 10 -> {
+                    zombieDamageMult = 1.1;
+                    Bukkit.broadcast(Component.text("§4§o...달빛이 강해지며, 좀비들의 힘도 점차 강해지고 있습니다... §7(모든 좀비 공격력 §c+10%§7)"));
+                }
+                case 20 -> {
+                    zombieDamageMult = 1.2;
+                    Bukkit.broadcast(Component.text("§4§o...달빛이 점점 더 강해지고 있습니다... §7(모든 좀비 공격력 §c+20%§7)"));
+                }
+                case 30 -> {
+                    zombieDamageMult = 1.3;
+                    Bukkit.broadcast(Component.text("§4§o...달빛이 점점 더 강해지고 있습니다... §7(모든 좀비 공격력 §c+30%§7)"));
+                }
+                case 40 -> {
+                    zombieDamageMult = 1.4;
+                    Bukkit.broadcast(Component.text("§4§o...달빛이 점점 더 강해지고 있습니다... §7(모든 좀비 공격력 §c+40%§7)"));
+                }
                 case 50 -> {
                     oxygenStarted = true;
                     Bukkit.broadcast(Component.text("§c...공기가 나빠지기 시작했습니다. 정화기 근처에 머물지 않을 시\n§c산소가 점점 줄어들며 산소가 0 이하가 될 시\n§c빠르게 체력이 줄어들게 됩니다."));
                 }
+                case 55 -> Bukkit.broadcast(Component.text("§4§o...온도가 점차 낮아지며, 아기 좀비가 나타나기 시작합니다..."));
                 case 60 -> {
                     Bukkit.broadcast(Component.text("§4§o...공기가 점점 더 나빠지고 있습니다... §7(산소 감소량 1.5배)"));
                     oxygenDecreaseForce = 1.5;
+                }
+                case 65 -> {
+                    zombieDamageMult = 1.5;
+                    Bukkit.broadcast(Component.text("§4§o...달빛이 점점 더 강해지고 있습니다... §7(모든 좀비 공격력 §c+50%§7)"));
                 }
                 case 70 -> {
                     Bukkit.broadcast(Component.text("§4§o...공기가 점점 더 나빠지고 있습니다... §7(산소 감소량 2배)"));
                     oxygenDecreaseForce = 2;
                 }
+                case 75 -> {
+                    zombieDamageMult = 1.6;
+                    Bukkit.broadcast(Component.text("§4§o...달빛이 점점 더 강해지고 있습니다... §7(모든 좀비 공격력 §c+60%§7)"));
+                }
                 case 80 -> {
                     Bukkit.broadcast(Component.text("§4§o...공기가 점점 더 나빠지고 있습니다... §7(산소 감소량 3배)"));
                     oxygenDecreaseForce = 3;
+                }
+                case 85 -> {
+                    zombieDamageMult = 2;
+                    Bukkit.broadcast(Component.text("§5§o...달빛이 가장 강해지는 시기입니다... §7(모든 좀비 공격력 §c§l+100%§7)"));
                 }
                 case 95 -> {
                     Bukkit.broadcast(Component.text("§9§o...공기는 점차 좋아지고 있습니다... §7(산소 감소량 3배 -> 1배)"));
@@ -224,8 +266,9 @@ public class GameHandler {
                     if (w != null) w.setFullTime(23000);
                 }
                 case 99 -> {
-                    Bukkit.broadcast(Component.text("§2§o...우리들의 승리인 듯 합니다... §7(모든 좀비 공격력 §a-99%§7)"));
+                    Bukkit.broadcast(Component.text("§2§o...우리들의 승리인 듯 합니다... §7(모든 좀비 공격력 §a-99%§7, 산소 감소 비활성화)"));
                     zombieDamageMult = 0.01;
+                    oxygenDecreaseForce = 0;
                     if (w != null) w.setFullTime(23500);
                 }
             }
@@ -234,17 +277,20 @@ public class GameHandler {
                 p.playSound(Sound.sound(Key.key("minecraft:entity.wither.spawn"), Sound.Source.MASTER, 1, 0.75F));
             }
         } else {
-            wave++;
-            if (w != null) {
-                w.setFullTime(24000);
-                for (LivingEntity e : w.getLivingEntities()) {
-                    if (ZombieParser.isZombie(e)) e.setFireTicks(Integer.MAX_VALUE);
-                    if (e instanceof Drowned) e.remove();
+            if (wave == 99) {
+                wave++;
+                if (w != null) {
+                    w.setFullTime(24000);
+                    for (LivingEntity e : w.getLivingEntities()) {
+                        if (ZombieParser.isZombie(e)) e.setFireTicks(Integer.MAX_VALUE);
+                        if (e instanceof Drowned) e.remove();
+                    }
                 }
-            } Bukkit.broadcast(Component.text("§a...해가 완전히 떴고 좀비들이 불타 없어지기 시작했습니다."));
-            Main.delay(() -> Bukkit.broadcast(Component.text("§a...이제, 이 전쟁을 끝낼 때가 왔습니다.")), 100);
-            Main.delay(() -> Bukkit.broadcast(Component.text("§a...§e연구소§a를 찾아가, 태양에 의해 드러난 §4바이러스의 근원§a을 처치하세요.")), 200);
-            Main.delay(() -> Bukkit.broadcast(Component.text("§a...그럼, 우리들의 승리입니다.")), 300);
+                Bukkit.broadcast(Component.text("§a...해가 완전히 떴고 좀비들이 불타 없어지기 시작했습니다."));
+                Main.delay(() -> Bukkit.broadcast(Component.text("§a...이제, 이 전쟁을 끝낼 때가 왔습니다.")), 100);
+                Main.delay(() -> Bukkit.broadcast(Component.text("§a...§e연구소§a를 찾아가, 태양에 의해 드러난 §4바이러스의 근원§a을 처치하세요.")), 200);
+                Main.delay(() -> Bukkit.broadcast(Component.text("§a...그럼, 우리들의 승리입니다.")), 300);
+            }
         }
     }
 

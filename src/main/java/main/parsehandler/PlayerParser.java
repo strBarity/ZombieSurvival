@@ -2,6 +2,7 @@ package main.parsehandler;
 
 import main.gamehandler.GameHandler;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -21,7 +22,7 @@ public class PlayerParser {
         double distance = Double.MAX_VALUE;
         Player nearest = null;
         for (Player p : Bukkit.getOnlinePlayers()) {
-            if (GameHandler.playerType.get(p).equals(GameHandler.PlayerType.SURVIVE) && l.distance(p.getLocation()) < distance) {
+            if (!p.getGameMode().equals(GameMode.SPECTATOR) && GameHandler.playerType.get(p) != null && GameHandler.playerType.get(p).equals(GameHandler.PlayerType.SURVIVE) && l.distance(p.getLocation()) < distance) {
                 nearest = p;
                 distance = l.distance(p.getLocation());
             }
@@ -31,7 +32,7 @@ public class PlayerParser {
     /**
      * 플레이어가 정화기 근처에 있는지 알아내는 메소드
      * @param player 정화기 근처에 있는지 알아낼 플레이어
-     * @return 정화기로부터 5시간 내에 있으면 true 반환, 아니면 false 반환
+     * @return 정화기로부터 5칸 내에 있으면 true 반환, 아니면 false 반환
      */
     public static boolean isNearPurifier(@NotNull Player player) {
         return Math.abs(252 - player.getLocation().getX()) <= 10 && Math.abs(208 - player.getLocation().getZ()) <= 10;

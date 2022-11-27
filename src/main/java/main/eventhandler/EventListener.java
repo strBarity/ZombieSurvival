@@ -7,6 +7,7 @@ import main.cmdhandler.CMDHandler;
 import main.gamehandler.GameHandler;
 import main.parsehandler.BlockParser;
 import main.parsehandler.ZombieParser;
+import main.timerhandler.InteractCDTimer;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.Component;
@@ -31,6 +32,7 @@ import org.bukkit.event.entity.*;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.jetbrains.annotations.NotNull;
@@ -60,19 +62,24 @@ public class EventListener implements Listener {
                 GameHandler.infectCount++;
                 for (Player player : Bukkit.getOnlinePlayers())
                     player.playSound(Sound.sound(Key.key("minecraft:entity.zombie_villager.cure"), Sound.Source.MASTER, 0.5F, 1));
-                Bukkit.broadcast(Component.text("§2☠ " + p.getName() + "§c님이 §4좀비가 되셨습니다."));
                 playerType.put(p, PlayerType.INFECTED);
                 p.setHealth(p.getHealthScale());
                 p.setNoDamageTicks(0);
                 p.setMaximumNoDamageTicks(0);
-                p.addPotionEffects(Arrays.asList(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, Integer.MAX_VALUE, 1, false, false), new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 2, false, false)));
-                title(p, "§2☠ §4좀비가 되셨습니다. §2☠", "§e사망 시 10초 후 다른 장소에서 다시 부활합니다.", 1, 8, 1);
-                for (ItemStack i : p.getInventory().getContents()) {
-                    if (i != null) {
-                        p.getWorld().dropItem(p.getLocation(), i);
+                if (wave != 100) {
+                    Bukkit.broadcast(Component.text("§2☠ " + p.getName() + "§c님이 §4좀비가 되셨습니다."));
+                    p.addPotionEffects(Arrays.asList(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, Integer.MAX_VALUE, 1, false, false), new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 2, false, false)));
+                    title(p, "§2☠ §4좀비가 되셨습니다. §2☠", "§e사망 시 10초 후 다른 장소에서 다시 부활합니다.", 1, 8, 1);
+                    for (ItemStack i : p.getInventory().getContents()) {
+                        if (i != null) {
+                            p.getWorld().dropItem(p.getLocation(), i);
+                        }
                     }
-                } p.getInventory().clear();
-                if (humanCount == 0) {
+                    p.getInventory().clear();
+                } else {
+                    Bukkit.broadcast(Component.text("§2☠ " + p.getName() + "§c님이 §4소멸하셨습니다."));
+                    title(p, "§4소멸하셨습니다.", "§e더 이상 부활할 수 없습니다.", 1, 8, 1);
+                } if (humanCount == 0) {
                     failGame();
                 }
             } else if (playerType.get(p).equals(PlayerType.INFECTED)) {
@@ -95,7 +102,8 @@ public class EventListener implements Listener {
                         p.setGlowing(true);
                     }, 200);
                 } else {
-                    title(p, "§c사망하셨습니다.", "§4태양이 떴기 때문에 다시 부활할 수 없습니다.", 0, 1, 0);
+                    Bukkit.broadcast(Component.text("§2☠ " + p.getName() + "§c님이 §4소멸하셨습니다."));
+                    title(p, "§c소멸하셨습니다.", "§4태양이 떴기 때문에 더 이상 부활할 수 없습니다.", 0, 1, 0);
                 }
             }
         } catch (Exception e1) {
@@ -112,8 +120,7 @@ public class EventListener implements Listener {
                     killer.sendMessage("§5§l희귀 전리품 드랍! §8(§4좀비 치킨 바베큐§8)");
                     killer.playSound(Sound.sound(Key.key("minecraft:entity.player.levelup"), Sound.Source.MASTER, 10, 2));
                 }
-            }
-            if (ZombieParser.isZombie(e.getEntity())) {
+            } if (ZombieParser.isZombie(e.getEntity())) {
                 GameHandler.remainingZombies--;
                 if (GameHandler.remainingZombies <= 0) GameHandler.nextWave();
                 e.getDrops().clear();
@@ -122,7 +129,11 @@ public class EventListener implements Listener {
                 Component name = e.getEntity().customName();
                 Player killer = e.getEntity().getKiller();
                 if (Math.random() <= 0.9) w.dropItem(l, ZOMBIE_FLESH);
-                if (Math.random() <= 0.3) w.dropItem(l, ZOMBIE_POWDER);
+                if (Math.random() <= 0.3) {
+                    ItemStack i = ZOMBIE_POWDER;
+                    i.setAmount((int) Math.round(Math.random() * 3));
+                    w.dropItem(l, i);
+                }
                 if (Math.random() <= 0.25) w.dropItem(l, POWER_CRYSTAL);
                 if (Math.random() <= 0.03) {
                     w.dropItem(l, ZOMBIE_TRACE);
@@ -139,7 +150,7 @@ public class EventListener implements Listener {
                 } if (e.getEntityType().equals(EntityType.ZOMBIE) && Math.random() <= 0.05) w.dropItem(l, ZOMBIE_APPLE_D);
                 if (e.getEntityType().equals(EntityType.HUSK) && Math.random() <= 0.2) {
                     ItemStack i = ZOMBIE_SAND;
-                    i.setAmount((int) Math.round(Math.random() * 25));
+                    i.setAmount((int) Math.round(Math.random() * 10));
                     w.dropItem(l, i);
                 }
                 if (e.getEntityType().equals(EntityType.DROWNED) && Math.random() <= 0.25) {
@@ -219,6 +230,20 @@ public class EventListener implements Listener {
             } if (e.getEntity() instanceof Player p && playerType.get(p).equals(PlayerType.INFECTED)) {
                 p.setNoDamageTicks(0);
                 p.setMaximumNoDamageTicks(0);
+                if (e.getDamager() instanceof Player p1 && p1.getInventory().getItemInMainHand().displayName().contains(Component.text("백신"))) {
+                    playerType.put(p, PlayerType.SURVIVE);
+                    ItemStack i = p1.getInventory().getItemInMainHand();
+                    Damageable meta = (Damageable) i.getItemMeta();
+                    meta.setDamage(meta.getDamage() + 62);
+                    i.setItemMeta(meta);
+                    if (meta.getDamage() > 240) {
+                        p1.getInventory().setItemInMainHand(new ItemStack(Material.AIR));
+                        p1.sendMessage("§c백신이 파괴되었습니다.");
+                    } else p1.getInventory().setItemInMainHand(i);
+                    Bukkit.broadcast(Component.text("§b" + p.getName() + "§9님이 인간이 되었습니다."));
+                    Main.title(p, "§b인간이 되셨습니다.", "§9다시 좀비들에게서 살아남으세요!", 1, 5, 1);
+                    GameHandler.setupItems(p.getInventory());
+                }
             } if (e.getDamager() instanceof Player p && playerType.get(p).equals(PlayerType.INFECTED)) {
                 e.setDamage(5);
             } if (GameHandler.gameStarted && e.getEntity() instanceof Player && e.getDamager().getType().equals(EntityType.PLAYER)) {
@@ -233,24 +258,33 @@ public class EventListener implements Listener {
                 if (!playerType.get((Player) e.getEntity()).equals(PlayerType.SURVIVE)) e.setCancelled(true);
                 if (zombieDamageMult != 1) e.setDamage(e.getDamage() * zombieDamageMult);
                 else if (name != null) {
-                    if (name.equals(Component.text("§c파괴의 좀비"))) e.setDamage(e.getDamage() / 1.5);
-                    else if (name.equals(Component.text("§9정화의 좀비")) || name.equals(Component.text("§d창조의 좀비"))) e.setDamage(e.getDamage() / 2);
+                    if (name.equals(Component.text("§c파괴의 좀비"))) {
+                        e.setDamage(e.getDamage() / 1.25);
+                        e.getEntity().getWorld().strikeLightningEffect(e.getEntity().getLocation());
+                    } else if (name.equals(Component.text("§9정화의 좀비"))) {
+                        e.setDamage(e.getDamage() / 1.9);
+                        if (e.getEntity() instanceof Player p) {
+                            p.addPotionEffects(Arrays.asList(Main.pot(BLINDNESS, 1, 0), Main.pot(SLOW, 5, 1), Main.pot(WEAKNESS, 10, 0)));
+                        }
+                    } else if (name.equals(Component.text("§d창조의 좀비"))) {
+                        e.setDamage(e.getDamage() / 2);
+                    }
                 }
             } if (e.getDamager() instanceof Player p && ZombieParser.isZombie(e.getEntity())) {
                 if (p.getInventory().getItemInMainHand().getType().equals(Material.NETHERITE_AXE)) {
                     if (Math.random() <= 0.25) {
-                        l.getWorld().playSound(Sound.sound(Key.key("minecraft:entity.generic.explode"), Sound.Source.MASTER, 0.5F, 1));
-                        l.getWorld().spawnParticle(Particle.EXPLOSION_NORMAL, l, 1, 0, 0, 0, 0, null, true);
-                        l.getWorld().spawnParticle(Particle.CRIT, l.getX(), l.getY(), l.getZ(), 50, 0, 0, 0, 3, null, true);
+                        p.playSound(Sound.sound(Key.key("minecraft:entity.generic.explode"), Sound.Source.MASTER, 0.5F, 1));
+                        l.getWorld().spawnParticle(Particle.EXPLOSION_NORMAL, l, 1, 0, 0, 0, 1, null, true);
+                        l.getWorld().spawnParticle(Particle.CRIT, l.getX(), l.getY(), l.getZ(), 75, 0, 0, 0, 1, null, true);
                         for (LivingEntity entity : l.getNearbyLivingEntities(5)) {
                             if (ZombieParser.isZombie(entity)) entity.damage(5);
                         }
                     }
                 } if (p.getInventory().getItemInMainHand().getType().equals(Material.NETHERITE_SWORD)) {
                     if (Math.random() <= 0.3) {
-                        l.getWorld().playSound(Sound.sound(Key.key("minecraft:entity.generic.explode"), Sound.Source.MASTER, 0.5F, 1));
-                        l.getWorld().spawnParticle(Particle.EXPLOSION_NORMAL, l, 1, 0, 0, 0, 0, null, true);
-                        l.getWorld().spawnParticle(Particle.FLAME, l.getX(), l.getY(), l.getZ(), 50, 0, 0, 0, 3, null, true);
+                        p.playSound(Sound.sound(Key.key("minecraft:entity.generic.explode"), Sound.Source.MASTER, 0.5F, 1));
+                        l.getWorld().spawnParticle(Particle.EXPLOSION_NORMAL, l, 1, 0, 0, 0, 1, null, true);
+                        l.getWorld().spawnParticle(Particle.FLAME, l.getX(), l.getY(), l.getZ(), 100, 0, 0, 0, 1.5, null, true);
                         l.getWorld().spawnParticle(Particle.DUST_COLOR_TRANSITION, l.getX(), l.getY(), l.getZ(), 50, 2.5, 1, 2.5, 1, new Particle.DustTransition(Color.fromRGB(255, 127, 255), Color.fromRGB(255, 0, 255), 1), true);
                         for (LivingEntity entity : l.getNearbyLivingEntities(5)) {
                             if (ZombieParser.isZombie(entity)) entity.damage(6);
@@ -311,14 +345,6 @@ public class EventListener implements Listener {
         }
     }
     @EventHandler
-    public void onPickup(@NotNull PlayerAttemptPickupItemEvent e) {
-        try {
-            if (playerType.get(e.getPlayer()).equals(PlayerType.INFECTED)) e.setCancelled(true);
-        } catch (Exception e1) {
-            printException(e1);
-        }
-    }
-    @EventHandler
     public void onArrowPickup(@NotNull PlayerPickupArrowEvent e) {
         try {
             if (playerType.get(e.getPlayer()).equals(PlayerType.INFECTED)) e.setCancelled(true);
@@ -332,40 +358,40 @@ public class EventListener implements Listener {
             ItemStack i = e.getItem();
             Component name  = i.getItemMeta().displayName();
             Player p = e.getPlayer();
-
-            if (name != null && !name.contains(Component.text("오염된"))) {
+            if (e.getItem().getType().equals(Material.COOKED_CHICKEN)) {
                 e.setCancelled(true);
-                if (i.getAmount() == 1) p.getInventory().setItemInMainHand(new ItemStack(Material.AIR));
-                else {
-                    i.setAmount(i.getAmount() - 1);
-                    p.getInventory().setItemInMainHand(i);
-                } p.addPotionEffect(pot(SATURATION, 1.0, 1));
-                p.sendActionBar(Component.text("§7좀비 사과를 섭취했습니다."));
+                p.sendMessage("§c너무 따끈따끈해서 먹기 어렵다.\n§e조합하는데 쓰도록 하자.");
+                return;
+            } if (name != null && name.contains(Component.text("좀비 사과")) && !name.contains(Component.text("오염된"))) {
+                e.setCancelled(true);
+                removeOne(p, i);
+                p.addPotionEffect(pot(SATURATION, 1.0, 1));
+                p.sendActionBar(Component.text("§a좀비 사과§7를 섭취했습니다."));
             } if (name != null && name.contains(Component.text("§e좀비 §6황금§e 사과"))) {
                 e.setCancelled(true);
-                if (i.getAmount() == 1) p.getInventory().setItemInMainHand(new ItemStack(Material.AIR));
-                else {
-                    i.setAmount(i.getAmount() - 1);
-                    p.getInventory().setItemInMainHand(i);
-                } p.addPotionEffects(Arrays.asList(pot(REGENERATION, 5, 2), pot(ABSORPTION, 150, 1), pot(SATURATION, 1.0, 4)));
-                p.sendActionBar(Component.text("§7좀비 황금 사과를 섭취했습니다."));
+                removeOne(p, i);
+                p.addPotionEffects(Arrays.asList(pot(REGENERATION, 5, 2), pot(ABSORPTION, 150, 1), pot(SATURATION, 1.0, 4)));
+                p.sendActionBar(Component.text("§e좀비 황금 사과§7를 섭취했습니다."));
             } if (name != null && name.contains(Component.text("황금 사과"))) {
                 e.setCancelled(true);
-                if (i.getAmount() == 1) p.getInventory().setItemInMainHand(new ItemStack(Material.AIR));
-                else {
-                    i.setAmount(i.getAmount() - 1);
-                    p.getInventory().setItemInMainHand(i);
-                } p.addPotionEffects(Arrays.asList(pot(REGENERATION, 5, 1), pot(ABSORPTION, 150, 0), pot(SATURATION, 1.0, 3)));
-                p.sendActionBar(Component.text("§7좀비 스테이크를 섭취했습니다."));
+                removeOne(p, i);
+                p.addPotionEffects(Arrays.asList(pot(REGENERATION, 5, 1), pot(ABSORPTION, 150, 0), pot(SATURATION, 1.0, 3)));
+                p.sendActionBar(Component.text("§e황금 사과§7를 섭취했습니다."));
             } if (name != null && name.contains(Component.text("좀비 스테이크"))) {
                 e.setCancelled(true);
                 if (name.contains(Component.text("단"))) {
                     p.setFoodLevel(p.getFoodLevel() + 7);
                     p.setSaturation(p.getSaturation() + 12);
+                    p.sendActionBar(Component.text("§6단§e짠§6단§e짠 좀비 스테이크§7를 섭취했습니다."));
                 } else {
                     p.setFoodLevel(p.getFoodLevel() + 4);
                     p.setSaturation(p.getSaturation() + 8);
-                }
+                    p.sendActionBar(Component.text("§e좀비 스테이크§7를 섭취했습니다."));
+                } removeOne(p, i);
+            } if (name != null && name.contains(Component.text("썩은 고기"))) {
+                removeOne(p, i);
+                p.setFoodLevel(p.getFoodLevel() + 1);
+                p.addPotionEffect(pot(HUNGER, 5, 1));
             }
         } catch (Exception e1) {
             printException(e1);
@@ -376,6 +402,7 @@ public class EventListener implements Listener {
         try {
             Player p = e.getPlayer();
             if (e.getClickedBlock() != null && BlockParser.isBlacklistedBlock(e.getClickedBlock().getType())) e.setCancelled(true);
+            if (InteractCDTimer.getInteractCooldown().containsKey(p)) return;
             ItemStack i = p.getInventory().getItemInMainHand();
             switch (i.getType()) {
                 case AMETHYST_SHARD -> {
@@ -383,17 +410,26 @@ public class EventListener implements Listener {
                     p.setHealth(Math.min(p.getHealth() + 6, p.getHealthScale()));
                     p.playSound(Sound.sound(Key.key("minecraft:entity.generic.eat"), Sound.Source.MASTER, 10, 1));
                     p.sendActionBar(Component.text("§7좀비의 흔적을 섭취했습니다."));
-                } case SHULKER_SHELL -> p.openWorkbench(p.getLocation(), true);
-                case RAW_GOLD -> {
+                    InteractCDTimer.getInteractCooldown().put(p, 40);
+                    return;
+                } case SHULKER_SHELL -> {
+                    p.openWorkbench(p.getLocation(), true);
+                    InteractCDTimer.getInteractCooldown().put(p, 5);
+                    return;
+                } case RAW_GOLD -> {
                     removeOne(p, i);
                     p.playSound(Sound.sound(Key.key("minecraft:entity.generic.eat"), Sound.Source.MASTER, 10, 1));
                     p.addPotionEffect(pot(REGENERATION, 5, 0));
                     p.sendActionBar(Component.text("§7좀비 토금을 섭취했습니다."));
+                    InteractCDTimer.getInteractCooldown().put(p, 5);
+                    return;
                 } case SWEET_BERRIES -> {
                     removeOne(p, i);
                     p.playSound(Sound.sound(Key.key("minecraft:entity.generic.eat"), Sound.Source.MASTER, 10, 1));
                     p.addPotionEffects(Arrays.asList(pot(REGENERATION, 5, 2), pot(ABSORPTION, 180, 4), pot(DAMAGE_RESISTANCE, 240, 1), pot(FIRE_RESISTANCE, 420, 0), pot(SATURATION, 1.0, 8)));
                     p.sendActionBar(Component.text("§7좀비신의 열매를 섭취했습니다."));
+                    InteractCDTimer.getInteractCooldown().put(p, 5);
+                    return;
                 } case HEART_OF_THE_SEA -> {
                     removeOne(p, i);
                     p.setHealthScale(p.getHealthScale() + 10);
@@ -404,6 +440,8 @@ public class EventListener implements Listener {
                     p.sendMessage("§c§l체력 최대치 +5§e!");
                     title(p, " ", "§c체력 최대치 +5§e!", 0.0, 1.0, 0.5);
                     p.sendActionBar(Component.text("§7좀비의 영생을 섭취했습니다."));
+                    InteractCDTimer.getInteractCooldown().put(p, 5);
+                    return;
                 } case COOKED_PORKCHOP -> {
                     removeOne(p, i);
                     infiniteFull.put(p, true);
@@ -411,6 +449,12 @@ public class EventListener implements Listener {
                     p.sendMessage("§d§l배고픔, 포화 무한 활성화§e!");
                     title(p, " ", "§d§l배고픔, 포화 무한 활성화§e!", 0.0, 1.0, 0.5);
                     p.sendActionBar(Component.text("§7죽은 자들의 식사를 섭취했습니다."));
+                    InteractCDTimer.getInteractCooldown().put(p, 5);
+                    return;
+                } case CAULDRON -> {
+                    p.openInventory(Bukkit.createInventory(null, 54, Component.text("§4§l이 안의 아이템은 모두 사라집니다!!!")));
+                    InteractCDTimer.getInteractCooldown().put(p, 5);
+                    return;
                 }
             } if (e.getClickedBlock() != null && e.getClickedBlock().getType().equals(Material.BEACON)) {
                 if (i.getType().equals(Material.NETHER_STAR)) {
@@ -420,10 +464,12 @@ public class EventListener implements Listener {
                     p.getInventory().setItemInMainHand(new ItemStack(Material.AIR));
                     p.sendMessage("§b정화기 파워가§a " + add + "§b만큼 충전되었습니다.");
                     beaconPower = beaconPower + add;
+                    InteractCDTimer.getInteractCooldown().put(p, 5);
                 } else if (i.getType().equals(Material.ROTTEN_FLESH)) {
                     int count = i.getAmount();
                     if (beaconPower == 0) {
                         p.sendMessage("§c정화기 파워가 부족합니다.");
+                        InteractCDTimer.getInteractCooldown().put(p, 5);
                     } else if (beaconPower >= count) {
                         beaconPower = beaconPower - count;
                         ItemStack steak = ZOMBIE_STEAK;
@@ -431,6 +477,7 @@ public class EventListener implements Listener {
                         p.getInventory().setItemInMainHand(new ItemStack(Material.AIR));
                         p.getInventory().addItem(steak);
                         p.sendMessage("§a" + count + "§b개 만큼의 썩은 고기가 정화되었습니다.");
+                        InteractCDTimer.getInteractCooldown().put(p, 5);
                     } else {
                         count = count - beaconPower;
                         ItemStack steak = ZOMBIE_STEAK;
@@ -443,6 +490,7 @@ public class EventListener implements Listener {
                         p.getInventory().addItem(steak);
                         beaconPower = 0;
                         p.sendMessage("§a" + count + "§b개 만큼의 썩은 고기가 정화되었습니다.");
+                        InteractCDTimer.getInteractCooldown().put(p, 5);
                     } if (playerType.get(p) != null && playerType.get(p).equals(PlayerType.INFECTED)) {
                         if (e.getAction().equals(Action.LEFT_CLICK_BLOCK)) {
                             if (Math.random() <= 1.0/3.0) beaconDurability--;
@@ -459,6 +507,10 @@ public class EventListener implements Listener {
 
                         }
                     }
+                } else if (i.getType().equals(Material.IRON_INGOT)) {
+                    removeOne(p, i);
+                    beaconDurability = Math.min(beaconDurability + 5, 50);
+                    p.sendMessage("§b정화기를 §9" + Math.min(beaconDurability + 5, 50) + "§b만큼 수리했습니다.");
                 }
             }
         } catch (Exception e1) {
@@ -480,13 +532,23 @@ public class EventListener implements Listener {
             Component t = e.getView().title();
             if (t.equals(Component.text("§2게임 시작 메뉴"))) {
                 e.setCancelled(true);
-                if (e.getSlot() == 10) GameHandler.startGame(GameHandler.Gamemode.NORMAL);
-                else if (e.getSlot() == 12 || e.getSlot() == 14 || e.getSlot() == 16) {
+                if (e.getSlot() == 10) {
+                    if (!gameStarted) GameHandler.startGame(GameHandler.Gamemode.NORMAL);
+                    else {
+                        p.sendMessage("§c게임이 이미 진행중입니다.");
+                        p.closeInventory();
+                    }
+                } else if (e.getSlot() == 12 || e.getSlot() == 14 || e.getSlot() == 16) {
                     p.sendMessage("§aComing soon!");
                     p.closeInventory();
                 }
             } else if (t.equals(Component.text("§8커스텀 아이템들"))) {
                 if (!p.isOp()) e.setCancelled(true);
+            } else if (t.equals(Component.text("§4§l이 안의 아이템은 모두 사라집니다!!!"))) {
+                if (e.getCurrentItem() != null && e.getCurrentItem().getType().equals(Material.CAULDRON)) {
+                    e.setCancelled(true);
+                    p.sendMessage("§4쓰레기통 안에 쓰레기통을 넣을 수 없습니다...");
+                }
             }
         } catch (Exception e1) {
             printException(e1);
@@ -496,6 +558,11 @@ public class EventListener implements Listener {
     public void onBreak(BlockBreakEvent e) {
         try {
             e.setCancelled(true);
+            if (wave == 100  && e.getBlock().getType().equals(Material.MANGROVE_ROOTS)) {
+                stopGame();
+                e.getBlock().getWorld().strikeLightningEffect(e.getBlock().getLocation());
+                Bukkit.broadcast(Component.text("§b--------------------\n§9생존자들의 승리§b로 게임이 종료되었습니다.\n§b--------------------"));
+            }
         } catch (Exception e1) {
             printException(e1);
         }
@@ -598,8 +665,13 @@ public class EventListener implements Listener {
         try {
             int i = repeat(() -> {
                 try {
-                    if (!GameHandler.gameStarted && p.getLocation().getY() < 219 && p.getGameMode().equals(GameMode.SURVIVAL))
+                    Location l = p.getLocation();
+                    if (!GameHandler.gameStarted && l.getY() < 219 && p.getGameMode().equals(GameMode.SURVIVAL))
                         p.teleport(new Location(p.getWorld(), 240.5, 224.0, 208.5));
+                    if (p.getGameMode().equals(GameMode.SPECTATOR) && (l.getX() < 115.5 || l.getY() < 50 || l.getZ() < 83.5 || l.getX() > 365.5 || l.getY() > 275 || l.getZ() > 333.5)) {
+                        p.teleport(new Location(p.getWorld(), 241.5 - 1 + (Math.random() * 2), 70, 209.5 - 1 + (Math.random() * 2)));
+                        p.sendMessage("§c맵을 탈출할 수 없습니다!");
+                    }
                 } catch (Exception e1) {
                     printException(e1);
                 }

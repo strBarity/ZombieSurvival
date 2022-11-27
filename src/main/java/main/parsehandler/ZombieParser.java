@@ -1,6 +1,7 @@
 package main.parsehandler;
 
 import main.Main;
+import main.gamehandler.GameHandler;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -52,21 +53,21 @@ public class ZombieParser {
                     z.setArmsRaised(true);
                     z.setCanBreakDoors(false);
                     z.setCanPickupItems(false);
-                    z.setAdult();
+                    if (GameHandler.wave < 55) z.setAdult();
                     z.setTarget(PlayerParser.getNearestPlayer(z));
                 } case HUSK -> {
                     Husk h = ((Husk) zombie);
                     h.setArmsRaised(true);
                     h.setCanBreakDoors(false);
                     h.setCanPickupItems(false);
-                    h.setAdult();
+                    if (GameHandler.wave < 55) h.setAdult();
                     h.setTarget(PlayerParser.getNearestPlayer(h));
                 } case DROWNED -> {
                     Drowned d = ((Drowned) zombie);
                     d.setArmsRaised(true);
                     d.setCanBreakDoors(false);
                     d.setCanPickupItems(false);
-                    d.setAdult();
+                    if (GameHandler.wave < 55) d.setAdult();
                     d.setTarget(PlayerParser.getNearestPlayer(d));
                 }
                 case ZOMBIE_VILLAGER -> {
@@ -74,7 +75,7 @@ public class ZombieParser {
                     v.setArmsRaised(true);
                     v.setCanBreakDoors(false);
                     v.setCanPickupItems(false);
-                    v.setAdult();
+                    if (GameHandler.wave < 55) v.setAdult();
                     v.setTarget(PlayerParser.getNearestPlayer(v));
                 } default -> throw new IllegalStateException("올바르지 않은 좀비가 좀비 타입에 대입되었습니다");
             }
@@ -82,12 +83,18 @@ public class ZombieParser {
             Main.printException(e);
         }
     }
+
+    /**
+     * 랜덤한 장소에 좀비를 생성시키는 메소드
+     * @param zombieType 좀비 타입 (좀비, 허스크, 드라운드, 좀비 주민)
+     * @return 스폰된 좀비
+     */
     public static @Nullable LivingEntity spawnRandom(ZombieType zombieType) {
-        final double x = 140.0 + (Math.random() * 200);
-        double y = 63;
-        final double z = 108.0 + (Math.random() * 200);
+        final int x = 140 + (int) Math.round(Math.random() * 200);
+        int y = 63;
+        final int z = 108 + (int) Math.round(Math.random() * 200);
         World w = Bukkit.getWorld("world");
-        if (w != null) while (w.getBlockAt((int) Math.round(x), (int) Math.round(y), (int) Math.round(z)).getType() != Material.AIR && w.getBlockAt((int) Math.round(x), (int) Math.round(y) + 1, (int) Math.round(z)).getType() != Material.AIR) y++;
+        if (w != null) while (w.getBlockAt(x, y, z).getType() != Material.AIR || w.getBlockAt(x, y + 1, z).getType() != Material.AIR) y++;
         Location l = new Location(Bukkit.getWorld("world"), x, y, z);
         if (zombieType.equals(ZombieType.ZOMBIE)) {
             if (w != null) {
