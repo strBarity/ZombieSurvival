@@ -141,10 +141,10 @@ public class EventListener implements Listener {
                         killer.sendMessage("§5§l희귀 전리품 드랍! §8(§c좀비의 흔적§8) §5(3%)");
                         killer.playSound(Sound.sound(Key.key("minecraft:entity.player.levelup"), Sound.Source.MASTER, 10, 2));
                     }
-                } if (Math.random() <= 0.01) {
+                } if (Math.random() <= 0.015) {
                     w.dropItem(l, ZOMBIE_POWER);
                     if (killer != null) {
-                        killer.sendMessage("§5§l희귀 전리품 드랍! §8(§e좀비의 힘§8) §d(1%)");
+                        killer.sendMessage("§5§l희귀 전리품 드랍! §8(§e좀비의 힘§8) §d(1.5%)");
                         killer.playSound(Sound.sound(Key.key("minecraft:entity.player.levelup"), Sound.Source.MASTER, 10, 2));
                     }
                 } if (e.getEntityType().equals(EntityType.ZOMBIE) && Math.random() <= 0.05) w.dropItem(l, ZOMBIE_APPLE_D);
@@ -185,8 +185,8 @@ public class EventListener implements Listener {
                 } if (killer != null && killer.getInventory().getItemInMainHand().getType().equals(Material.NETHERITE_PICKAXE)) {
                     Snowman snowman = w.spawn(l, Snowman.class);
                     snowman.customName(Component.text("§8" + killer.getName() + "의 몬스터"));
+                    snowman.setCustomNameVisible(true);
                     snowman.setHealth(1);
-                    snowman.setDerp(true);
                     snowman.setTarget(ZombieParser.getNearestZombie(snowman));
                 }
             }
@@ -410,7 +410,7 @@ public class EventListener implements Listener {
                     p.setHealth(Math.min(p.getHealth() + 6, p.getHealthScale()));
                     p.playSound(Sound.sound(Key.key("minecraft:entity.generic.eat"), Sound.Source.MASTER, 10, 1));
                     p.sendActionBar(Component.text("§7좀비의 흔적을 섭취했습니다."));
-                    InteractCDTimer.getInteractCooldown().put(p, 40);
+                    InteractCDTimer.getInteractCooldown().put(p, 10);
                     return;
                 } case SHULKER_SHELL -> {
                     p.openWorkbench(p.getLocation(), true);
@@ -602,13 +602,13 @@ public class EventListener implements Listener {
             Bukkit.getScheduler().cancelTask(taskId.get(p));
             if (gameStarted) {
                 if (playerType.get(p) != null && playerType.get(p).equals(PlayerType.SURVIVE)) {
-                    humanCount--;
                     Bukkit.broadcast(Component.text("§4생존자 한명이 세계를 떠났습니다..."));
                     for (ItemStack i : p.getInventory().getContents()) {
                         if (i != null) {
                             p.getWorld().dropItem(p.getLocation(), i);
                         }
-                    } if (humanCount <= 0) failGame();
+                    } humanCount--;
+                    if (humanCount <= 0) failGame();
                 } if (playerType.get(p) != null && playerType.get(p).equals(PlayerType.INFECTED)) {
                     infectCount--;
                     Bukkit.broadcast(Component.text("§4좀비 한명이 세계를 떠났습니다..."));

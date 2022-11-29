@@ -69,6 +69,7 @@ public final class Main extends JavaPlugin {
         try {
             mainBoardSet();
             startMainTask();
+            CraftListener.startrecipeTask();
             CONSOLE.sendMessage("§4[§2ZombieSurvival§4] §a플러그인이 활성화되었습니다.");
             LOGGER.warning("[ZombieSurvival] 현재 개발 중인 플러그인을 사용하고 있습니다! 서버에 발생하는 오류에 대해서는 책임지지 않습니다.");
 
@@ -101,7 +102,7 @@ public final class Main extends JavaPlugin {
 
             // 무기류
             D_SWORD = customItem(Material.IRON_SWORD, 1, "§e★☆☆ §f보급형 검", Arrays.asList("§7날카로움 V", "", "§7간단한 보급형 검 한 자루다.", "§7성능은 그럭저럭. 더 좋은 검을 찾아보자."), true, List.of(sh5), true);
-            ZOMBIE_POWER = customItem(Material.DIAMOND_SWORD,1, "§e★★☆ §e좀비의 힘", List.of("§7날카로움 V", "", "§c좀비의 강력한 기운§7이 가득 담겨있다.", "§7다른 좀비 관련 드랍 아이템들과 조합하면", "§5아주 강력한 §7무기를 만들 수 있을 것 같다.", "", "§8모든 좀비에게서 §d1%§8 확률로 드랍"), true, List.of(sh5), true);
+            ZOMBIE_POWER = customItem(Material.DIAMOND_SWORD,1, "§e★★☆ §e좀비의 힘", List.of("§7날카로움 V", "", "§c좀비의 강력한 기운§7이 가득 담겨있다.", "§7다른 좀비 관련 드랍 아이템들과 조합하면", "§5아주 강력한 §7무기를 만들 수 있을 것 같다.", "", "§8모든 좀비에게서 §d1.5%§8 확률로 드랍"), true, List.of(sh5), true);
             PURIFICATION_STAFF = customItem(Material.NETHERITE_SHOVEL,1, "§e★★★ §d정화의 스태프", Arrays.asList("§7날카로움 V", "", "§a능력: §e힐링 킬링", "§c적 처치§7 시 근처 §e플레이어§7에게", "§d재생 II§7를 §a1§7초간 부여한다."), true, List.of(sh5), true);
             CREATION_WAND = customItem(Material.NETHERITE_PICKAXE,1, "§e★★★ §b창조의 지팡이", Arrays.asList("§7날카로움 V", "", "§a능력: §e아군 생성기", "§c적 처치§7 시 적의 위치에 §c체력 §a1,", "§c공격력 §a1§7의 친화적 §f눈사람§7을 §b소환§7한다."), true, List.of(sh5), true);
             DESTRUCTION_AXE = customItem(Material.NETHERITE_AXE, 1, "§e★★★ §c파괴의 도끼", Arrays.asList("§7날카로움 V", "", "§a능력: §e폭발성 날", "§6적 타격§7 시 §5낮은 확률§7로 적의 위치에", "§a5§7의 §c피해§7를 주는 강력한 §e폭발§7을 생성시킨다."), true, List.of(sh5), true);
